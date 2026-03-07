@@ -1,7 +1,12 @@
+'use client'
+
 import FeedbackForm from '@/components/FeedbackForm'
 import Image from 'next/image'
+import { usePageViewTracker } from '@/lib/usePageViewTracker'
 
 export default function Home() {
+  usePageViewTracker('index')
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-brand-white py-8">
       <div className="container-feedback w-full">
