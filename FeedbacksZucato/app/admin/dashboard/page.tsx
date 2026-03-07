@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import DashboardCards from '@/components/DashboardCards'
 import DashboardCharts from '@/components/DashboardCharts'
 import FeedbackTable from '@/components/FeedbackTable'
+import PageViewStats from '@/components/PageViewStats'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface Stats {
@@ -165,6 +166,16 @@ export default function DashboardPage() {
         <DashboardCharts
           sentimentBreakdown={stats.sentimentBreakdown}
           evolution={evolution}
+        />
+
+        {/* Estatísticas de Visitantes */}
+        <PageViewStats
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onFiltersChange={(from, to) => {
+            setDateFrom(from)
+            setDateTo(to)
+          }}
         />
 
         {/* Filtro de Data */}

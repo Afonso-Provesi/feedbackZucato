@@ -12,7 +12,7 @@ export default function StarRating({ value, onChange }: StarRatingProps) {
 
   return (
     <div className="flex flex-col items-center my-8 px-4">
-      <div className="flex justify-center gap-1 mb-4 flex-wrap">
+      <div className="flex justify-center gap-0.5 mb-4">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
           <button
             key={num}
@@ -20,11 +20,11 @@ export default function StarRating({ value, onChange }: StarRatingProps) {
             onClick={() => onChange(num)}
             onMouseEnter={() => setHovered(num)}
             onMouseLeave={() => setHovered(0)}
-            className="transition-all hover:scale-110 w-8 h-8 flex items-center justify-center rounded-md"
+            className="transition-all hover:scale-110 w-7 h-7 flex items-center justify-center rounded-md text-xs"
             aria-label={`Avaliar com ${num}`}
           >
             <span
-              className={`text-sm font-bold ${
+              className={`font-bold ${
                 num <= (hovered || value)
                   ? 'text-brand-blue bg-blue-100 rounded-md w-full h-full flex items-center justify-center'
                   : 'text-gray-400'
