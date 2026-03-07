@@ -19,7 +19,7 @@ export default function DashboardCards({
       <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-brand-gold">
         <p className="text-gray-600 text-sm font-semibold mb-2">Média de Avaliações</p>
         <p className="text-3xl font-bold text-brand-blue">{avgRating.toFixed(1)}</p>
-        <p className="text-gray-400 text-xs mt-2">de 5 estrelas</p>
+        <p className="text-gray-400 text-xs mt-2">de 10</p>
       </div>
 
       {/* Total de Avaliações */}

@@ -16,7 +16,12 @@ export default function FeedbackForm() {
     e.preventDefault()
 
     if (rating === 0) {
-      toast.error('Por favor, selecione uma avaliação')
+      toast.error('Por favor, selecione uma avaliação de 1 a 10')
+      return
+    }
+
+    if (rating < 1 || rating > 10) {
+      toast.error('Avaliação deve estar entre 1 e 10')
       return
     }
 

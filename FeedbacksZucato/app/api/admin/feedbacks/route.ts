@@ -10,15 +10,15 @@ export async function GET(req: NextRequest) {
     }
 
     const sentiment = req.nextUrl.searchParams.get('sentiment')
-    const startDate = req.nextUrl.searchParams.get('startDate')
-    const endDate = req.nextUrl.searchParams.get('endDate')
+    const dateFrom = req.nextUrl.searchParams.get('dateFrom') || req.nextUrl.searchParams.get('startDate')
+    const dateTo = req.nextUrl.searchParams.get('dateTo') || req.nextUrl.searchParams.get('endDate')
 
     const filters: any = {}
     if (sentiment && sentiment !== 'todos') {
       filters.sentiment = sentiment
     }
-    if (startDate) filters.startDate = startDate
-    if (endDate) filters.endDate = endDate
+    if (dateFrom) filters.startDate = dateFrom
+    if (dateTo) filters.endDate = dateTo
 
     const feedbacks = await getFeedbacks(filters)
     return NextResponse.json(feedbacks, { status: 200 })
