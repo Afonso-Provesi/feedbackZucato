@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createToken, setAuthCookie } from '@/lib/auth'
 import { verifyPassword, sanitizeInput } from '@/lib/security'
 import { supabaseAdmin } from '@/lib/supabase'
-import { decryptEmail } from '@/lib/crypto'
+import { hashEmail } from '@/lib/crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,35 +18,16 @@ export async function POST(req: NextRequest) {
     }
 
     const sanitizedEmail = sanitizeInput(email)
+    const emailHash = hashEmail(sanitizedEmail)
 
-    // Buscar todos os admins (vamos comparar email descriptografado)
-    const { data: allAdmins, error: selectError } = await supabaseAdmin
+    // Buscar admin por email hash
+    const { data, error } = await supabaseAdmin
       .from('admins')
       .select('id, email, password_hash, is_active')
+      .eq('email', emailHash)
+      .single()
 
-    if (selectError || !allAdmins || allAdmins.length === 0) {
-      return NextResponse.json(
-        { error: 'Email ou senha inválidos' },
-        { status: 401 }
-      )
-    }
-
-    // Procurar admin com email que corresponde (descriptografar e comparar)
-    let foundAdmin = null
-    for (const admin of allAdmins) {
-      try {
-        const decryptedEmail = decryptEmail(admin.email)
-        if (decryptedEmail.toLowerCase() === sanitizedEmail.toLowerCase()) {
-          foundAdmin = admin
-          break
-        }
-      } catch (error) {
-        // Email corrompido ou erro de descriptografia, continuar
-        console.error('Erro ao descriptografar email do admin:', error)
-      }
-    }
-
-    if (!foundAdmin) {
+    if (error || !data) {
       return NextResponse.json(
         { error: 'Email ou senha inválidos' },
         { status: 401 }
@@ -54,14 +35,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Verificar se admin está ativo
-    if (!foundAdmin.is_active) {
+    if (!data.is_active) {
       return NextResponse.json(
         { error: 'Admin desativado' },
         { status: 401 }
       )
     }
-
-    const data = foundAdmin
 
     // Verificar senha
     const isPasswordValid = await verifyPassword(password, data.password_hash)
@@ -72,11 +51,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Criar token com email descriptografado
-    const decryptedAdminEmail = decryptEmail(data.email)
+    // Criar token com email original (não hash)
     const token = await createToken({
       id: data.id,
-      email: decryptedAdminEmail,
+      email: sanitizedEmail,
     })
 
     // Setar cookie

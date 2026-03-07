@@ -5,6 +5,7 @@
  * Uso: node scripts/create-admin.js
  * 
  * Pede email e senha interativamente e salva no Supabase
+ * Email é hasheado com SHA-256 para maior segurança
  */
 
 // carregar variáveis de ambiente de .env.local (se existir)
@@ -13,7 +14,7 @@ require('dotenv').config({ path: '.env.local' })
 const readline = require('readline')
 const { createClient } = require('@supabase/supabase-js')
 const bcrypt = require('bcryptjs')
-const { createCipheriv, randomBytes, createHash } = require('crypto')
+const { createHash } = require('crypto')
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -24,22 +25,9 @@ const question = (query) => {
   return new Promise((resolve) => rl.question(query, resolve))
 }
 
-// Função para criptografar email
-function encryptEmail(email) {
-  const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default-insecure-key-change-in-prodxxxxxxxxxxxxx'
-  let keyBuffer
-  if (ENCRYPTION_KEY.length >= 32) {
-    keyBuffer = Buffer.from(ENCRYPTION_KEY.slice(0, 32))
-  } else {
-    keyBuffer = createHash('sha256').update(ENCRYPTION_KEY).digest()
-  }
-  
-  const iv = randomBytes(16)
-  const cipher = createCipheriv('aes-256-gcm', keyBuffer, iv)
-  let encrypted = cipher.update(email, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  const authTag = cipher.getAuthTag()
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+// Função para fazer hash do email com SHA-256
+function hashEmail(email) {
+  return createHash('sha256').update(email.toLowerCase()).digest('hex')
 }
 
 async function main() {
@@ -85,13 +73,13 @@ async function main() {
       throw new Error('Senhas não correspondem')
     }
 
-    // Hash da senha
+    // Hash da senha (bcrypt)
     console.log('\n⏳ Gerando hash da senha...')
     const passwordHash = await bcrypt.hash(password, 10)
 
-    // Criptografar email
-    console.log('⏳ Criptografando email...')
-    const encryptedEmail = encryptEmail(email)
+    // Hash do email (SHA-256)
+    console.log('⏳ Hasheando email (SHA-256)...')
+    const emailHash = hashEmail(email)
 
     // Salvar no banco
     console.log('⏳ Salvando admin no banco...')
@@ -99,7 +87,7 @@ async function main() {
       .from('admins')
       .insert([
         {
-          email: encryptedEmail,
+          email: emailHash,
           password_hash: passwordHash,
           is_active: true,
         },
@@ -112,6 +100,7 @@ async function main() {
 
     console.log('\n✅ Admin criado com sucesso!\n')
     console.log(`Email: ${email}`)
+    console.log(`Email Hash (armazenado): ${emailHash.slice(0, 16)}...`)
     console.log(`ID: ${data[0].id}`)
     console.log(`Criado em: ${new Date(data[0].created_at).toLocaleString('pt-BR')}\n`)
     console.log('🎉 Você já pode fazer login em /admin/login\n')
