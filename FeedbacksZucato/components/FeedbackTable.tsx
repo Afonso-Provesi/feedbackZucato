@@ -73,15 +73,8 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
                     {new Date(feedback.created_at).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="p-3">
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <span
-                          key={i}
-                          className={i < feedback.rating ? 'text-brand-gold' : 'text-gray-300'}
-                        >
-                          ★
-                        </span>
-                      ))}
+                    <div className="inline-block bg-brand-blue text-white px-3 py-1 rounded-md font-semibold">
+                      {feedback.rating}/10
                     </div>
                   </td>
                   <td className="p-3">
