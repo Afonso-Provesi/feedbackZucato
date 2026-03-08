@@ -3,6 +3,7 @@
 import FeedbackForm from '@/components/FeedbackForm'
 import Image from 'next/image'
 import { usePageViewTracker } from '@/lib/usePageViewTracker'
+import AdBanner from '@/components/AdBanner'
 
 export default function Home() {
   usePageViewTracker('index')
@@ -32,6 +33,9 @@ export default function Home() {
 
           <FeedbackForm />
         </div>
+
+        {/* Ad Banner */}
+        <AdBanner slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME || ''} />
       </div>
     </main>
   )
