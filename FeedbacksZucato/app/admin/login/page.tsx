@@ -10,6 +10,13 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [adminPath, setAdminPath] = useState('')
+
+  useEffect(() => {
+    // Obter o caminho dinâmico do admin
+    const path = getCurrentAdminPath()
+    setAdminPath(path)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +38,7 @@ export default function AdminLoginPage() {
 
       toast.success('Login realizado com sucesso!')
       setTimeout(() => {
-        router.push('/admin/dashboard')
+        router.push(`/admin/${adminPath}`)
       }, 1500)
     } catch (error) {
       console.error('Erro:', error)

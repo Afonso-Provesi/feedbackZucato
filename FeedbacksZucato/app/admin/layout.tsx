@@ -1,35 +1,43 @@
-'use client'
-
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/lib/useTheme'
+import { isValidAdminPath } from '@/lib/adminPath'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { theme } = useTheme()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isValidPath, setIsValidPath] = useState(false)
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAccess = async () => {
       try {
+        // Verificar se o caminho da URL é válido
+        const currentPath = window.location.pathname.split('/')[2] // /admin/[path]
+        if (!isValidAdminPath(currentPath)) {
+          router.push('/404') // Redirecionar para 404 se caminho inválido
+          return
+        }
+        setIsValidPath(true)
+
+        // Verificar autenticação
         const response = await fetch('/api/auth/check')
         if (response.ok) {
           setIsAuthenticated(true)
-          setIsLoading(false)
         } else {
           setIsAuthenticated(false)
-          setIsLoading(false)
         }
       } catch (error) {
-        console.error('Erro ao verificar autenticação:', error)
+        console.error('Erro ao verificar acesso:', error)
         setIsAuthenticated(false)
+      } finally {
         setIsLoading(false)
       }
     }
 
-    checkAuth()
+    checkAccess()
   }, [router])
 
   if (isLoading) {
