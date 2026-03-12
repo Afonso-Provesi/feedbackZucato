@@ -1,5 +1,4 @@
 // Sistema de segurança para caminhos de admin dinâmicos
-import crypto from 'crypto'
 
 // Wordlist expandida para caminhos de admin
 export const adminWordlist = [
