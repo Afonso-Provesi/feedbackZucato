@@ -1,13 +1,14 @@
 {
   "name": "zucato-feedback",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sistema de coleta e análise de feedback - Clínica Odontológica Zucato",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "reset-admin-email": "node scripts/reset-admin-email.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",

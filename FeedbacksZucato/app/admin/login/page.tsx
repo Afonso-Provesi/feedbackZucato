@@ -7,7 +7,46 @@ import toast, { Toaster } from 'react-hot-toast'
 import { getCurrentAdminPath } from '@/lib/adminPath'
 import { createSupabaseBrowserClient } from '@/lib/supabase-auth/browser'
 
-type LoginStep = 'credentials' | 'mfa-enroll' | 'mfa-verify'
+type LoginStep = 'credentials' | 'mfa-enroll' | 'mfa-verify' | 'recovery'
+
+function hasRecoveryMarkers(): boolean {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const search = window.location.search
+  const hash = window.location.hash
+
+  return (
+    search.includes('mode=recovery') ||
+    search.includes('type=recovery') ||
+    search.includes('code=') ||
+    hash.includes('type=recovery') ||
+    hash.includes('access_token=') ||
+    hash.includes('refresh_token=')
+  )
+}
+
+function clearRecoveryUrl(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const url = new URL(window.location.href)
+  url.searchParams.delete('code')
+  url.searchParams.delete('mode')
+  url.searchParams.delete('type')
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
+}
+
+function getHashParams(): URLSearchParams {
+  if (typeof window === 'undefined') {
+    return new URLSearchParams()
+  }
+
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  return new URLSearchParams(hash)
+}
 
 function toQrDataUrl(qrCode: string): string {
   const normalizedQrCode = qrCode.trim()
@@ -41,6 +80,8 @@ export default function AdminLoginPage() {
   const supabase = createSupabaseBrowserClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
   const [qrCode, setQrCode] = useState('')
   const [totpSecret, setTotpSecret] = useState('')
@@ -49,10 +90,76 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<LoginStep>('credentials')
   const [isLoading, setIsLoading] = useState(false)
   const [adminPath, setAdminPath] = useState('')
+  const [isPreparingRecovery, setIsPreparingRecovery] = useState(false)
 
   useEffect(() => {
     const path = getCurrentAdminPath()
     setAdminPath(path)
+
+    const recoverSession = async () => {
+      if (!hasRecoveryMarkers()) {
+        return
+      }
+
+      setIsPreparingRecovery(true)
+
+      try {
+        const url = new URL(window.location.href)
+        const code = url.searchParams.get('code')
+        const hashParams = getHashParams()
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) {
+            throw error
+          }
+        } else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (error) {
+            throw error
+          }
+        }
+
+        const { data, error } = await supabase.auth.getUser()
+        if (error || !data.user?.email) {
+          throw error || new Error('Não foi possível validar a recuperação de senha')
+        }
+
+        setPendingEmail(data.user.email)
+        setNewPassword('')
+        setConfirmPassword('')
+        setStep('recovery')
+      } finally {
+        setIsPreparingRecovery(false)
+      }
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPendingEmail(session?.user?.email || '')
+        setNewPassword('')
+        setConfirmPassword('')
+        setVerificationCode('')
+        setStep('recovery')
+      }
+    })
+
+    recoverSession().catch((error) => {
+      console.error('Erro ao preparar fluxo de recuperação:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao preparar redefinição de senha')
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   const redirectToAdmin = () => {
@@ -61,9 +168,16 @@ export default function AdminLoginPage() {
     }, 1200)
   }
 
-  const assertAdminAccess = async () => {
+  const assertAdminAccess = async (accessToken?: string) => {
+    const headers: HeadersInit = {}
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
+    }
+
     const response = await fetch('/api/auth/check', {
       cache: 'no-store',
+      headers,
     })
 
     if (!response.ok) {
@@ -91,8 +205,8 @@ export default function AdminLoginPage() {
     setStep('mfa-enroll')
   }
 
-  const continueAfterPasswordLogin = async (userEmail: string) => {
-    await assertAdminAccess()
+  const continueAfterPasswordLogin = async (userEmail: string, accessToken?: string) => {
+    await assertAdminAccess(accessToken)
 
     const factorsResult = await supabase.auth.mfa.listFactors()
     if (factorsResult.error) {
@@ -140,7 +254,7 @@ export default function AdminLoginPage() {
         throw error
       }
 
-      await continueAfterPasswordLogin(data.user?.email || normalizedEmail)
+      await continueAfterPasswordLogin(data.user?.email || normalizedEmail, data.session?.access_token)
     } catch (error) {
       console.error('Erro:', error)
       toast.error(error instanceof Error ? error.message : 'Erro ao fazer login')
@@ -223,34 +337,89 @@ export default function AdminLoginPage() {
     setTotpSecret('')
     setFactorId('')
     setPendingEmail('')
+    setNewPassword('')
+    setConfirmPassword('')
+    clearRecoveryUrl()
+  }
+
+  const handlePasswordRecovery = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      if (newPassword.length < 8) {
+        throw new Error('A nova senha deve ter no mínimo 8 caracteres')
+      }
+
+      if (newPassword !== confirmPassword) {
+        throw new Error('As senhas não coincidem')
+      }
+
+      const { data: currentUserData, error: currentUserError } = await supabase.auth.getUser()
+      if (currentUserError || !currentUserData.user?.email) {
+        throw currentUserError || new Error('Sessão de recuperação inválida ou expirada')
+      }
+
+      if (pendingEmail && currentUserData.user.email.toLowerCase() !== pendingEmail.toLowerCase()) {
+        throw new Error('A sessão de recuperação não corresponde ao email esperado')
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+
+      if (error) {
+        throw error
+      }
+
+      await supabase.auth.signOut()
+      clearRecoveryUrl()
+      setStep('credentials')
+      setPendingEmail('')
+      setNewPassword('')
+      setConfirmPassword('')
+      toast.success('Senha redefinida com sucesso. Entre com a nova senha.')
+    } catch (error) {
+      console.error('Erro:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao redefinir senha')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <>
       <Toaster position="top-center" />
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-700 py-8">
+      <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(21,58,91,0.24),transparent_30%),linear-gradient(180deg,#183b5a_0%,#102d45_100%)] py-8">
         <div className="w-full max-w-md px-4">
           <div className="text-center mb-8">
-            <div className="inline-block mb-4">
+            <div className="inline-block mb-4 rounded-[28px] border border-white/15 bg-white/10 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.18)] backdrop-blur-md">
               <Image
                 src="/Logo.png"
                 alt="Clínica Zucato"
                 width={120}
                 height={120}
-                className="rounded-lg shadow-lg"
+                className="rounded-2xl"
               />
             </div>
-            <h1 className="text-3xl font-bold text-white">Zucato</h1>
-            <p className="text-blue-100 mt-2">Área Administrativa</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(255,250,243,0.74)]">Área Corporativa</p>
+            <h1 className="mt-2 text-4xl font-semibold text-white">Zucato</h1>
+            <p className="text-[rgba(255,250,243,0.78)] mt-2">Acesso administrativo com autenticação reforçada</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-2xl p-8">
+          <div className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(250,246,240,0.92))] p-8 shadow-[0_30px_80px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+            {isPreparingRecovery && (
+              <div className="mb-6 rounded-2xl border border-[rgba(21,58,91,0.1)] bg-[rgba(21,58,91,0.04)] px-4 py-3 text-sm text-[var(--text-soft)]">
+                Validando link de redefinição de senha...
+              </div>
+            )}
             {step === 'credentials' ? (
               <form onSubmit={handleCredentialsSubmit}>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Login do Admin</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)] mb-2">Entrar</p>
+                <h2 className="text-3xl font-semibold text-[var(--color-primary)] mb-6">Login do Admin</h2>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
                     Email
                   </label>
                   <input
@@ -258,13 +427,13 @@ export default function AdminLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu@email.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
                     required
                   />
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
                     Senha
                   </label>
                   <input
@@ -272,7 +441,7 @@ export default function AdminLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Sua senha"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
                     required
                   />
                 </div>
@@ -280,19 +449,73 @@ export default function AdminLoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),#245783)] py-3 text-white font-semibold shadow-[0_18px_34px_rgba(21,58,91,0.22)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Validando...' : 'Continuar'}
                 </button>
               </form>
+            ) : step === 'recovery' ? (
+              <form onSubmit={handlePasswordRecovery}>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)] mb-2">Recuperação</p>
+                <h2 className="text-3xl font-semibold text-[var(--color-primary)] mb-2">Definir Nova Senha</h2>
+                <p className="text-sm text-[var(--text-soft)] mb-6">
+                  Defina a nova senha da conta administrativa {pendingEmail ? `para ${pendingEmail}` : 'e finalize o acesso'}.
+                </p>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
+                    Nova senha
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo de 8 caracteres"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
+                    required
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
+                    Confirmar nova senha
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),#245783)] py-3 text-white font-semibold shadow-[0_18px_34px_rgba(21,58,91,0.22)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Salvando...' : 'Salvar nova senha'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCancelFlow}
+                  disabled={isLoading}
+                  className="mt-4 w-full text-sm text-[var(--text-soft)] hover:text-[var(--color-primary)] disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </form>
             ) : step === 'mfa-enroll' ? (
               <form onSubmit={handleEnrollmentVerification}>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Ative o Autenticador</h2>
-                <p className="text-sm text-gray-600 mb-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)] mb-2">Primeiro acesso</p>
+                <h2 className="text-3xl font-semibold text-[var(--color-primary)] mb-2">Ative o Autenticador</h2>
+                <p className="text-sm text-[var(--text-soft)] mb-6">
                   Escaneie o QR Code abaixo com Google Authenticator, Microsoft Authenticator, 1Password ou app equivalente para {pendingEmail}.
                 </p>
 
-                <div className="mb-4 rounded-lg border border-gray-200 p-4">
+                <div className="mb-4 rounded-[24px] border border-[rgba(21,58,91,0.1)] bg-white p-4">
                   <Image
                     src={qrCode}
                     alt="QR Code para configurar MFA"
@@ -303,12 +526,12 @@ export default function AdminLoginPage() {
                   />
                 </div>
 
-                <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <div className="mb-4 rounded-[20px] bg-[rgba(21,58,91,0.05)] px-4 py-3 text-sm text-[var(--color-primary)]">
                   Chave manual: <span className="font-semibold break-all">{totpSecret}</span>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
                     Código do aplicativo autenticador
                   </label>
                   <input
@@ -317,7 +540,7 @@ export default function AdminLoginPage() {
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="000000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg tracking-[0.35em] text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 tracking-[0.35em] text-center text-lg focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
                     required
                   />
                 </div>
@@ -325,7 +548,7 @@ export default function AdminLoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading || verificationCode.length !== 6}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),#245783)] py-3 text-white font-semibold shadow-[0_18px_34px_rgba(21,58,91,0.22)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Ativando...' : 'Ativar autenticador'}
                 </button>
@@ -334,20 +557,21 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={handleCancelFlow}
                   disabled={isLoading}
-                  className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  className="mt-4 w-full text-sm text-[var(--text-soft)] hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
                   Cancelar
                 </button>
               </form>
             ) : (
               <form onSubmit={handleMfaVerification}>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Verificação em Duas Etapas</h2>
-                <p className="text-sm text-gray-600 mb-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)] mb-2">Segurança</p>
+                <h2 className="text-3xl font-semibold text-[var(--color-primary)] mb-2">Verificação em Duas Etapas</h2>
+                <p className="text-sm text-[var(--text-soft)] mb-6">
                   Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador para {pendingEmail || email}.
                 </p>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-[var(--color-primary)] mb-2">
                     Código do autenticador
                   </label>
                   <input
@@ -357,7 +581,7 @@ export default function AdminLoginPage() {
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="000000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg tracking-[0.35em] text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-2xl border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.8)] px-4 py-3 tracking-[0.35em] text-center text-lg focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)] focus:border-[rgba(181,138,87,0.5)]"
                     required
                   />
                 </div>
@@ -365,7 +589,7 @@ export default function AdminLoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading || verificationCode.length !== 6}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),#245783)] py-3 text-white font-semibold shadow-[0_18px_34px_rgba(21,58,91,0.22)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Verificando...' : 'Entrar'}
                 </button>
@@ -374,7 +598,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={handleCancelFlow}
                   disabled={isLoading}
-                  className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  className="mt-4 w-full text-sm text-[var(--text-soft)] hover:text-[var(--color-primary)] disabled:opacity-50"
                 >
                   Voltar
                 </button>
@@ -382,7 +606,7 @@ export default function AdminLoginPage() {
             )}
           </div>
 
-          <p className="text-center text-blue-100 text-sm mt-6">
+          <p className="text-center text-[rgba(255,250,243,0.74)] text-sm mt-6">
             Apenas administradores podem acessar esta área
           </p>
         </div>

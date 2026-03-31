@@ -22,16 +22,16 @@ export const themes: Record<string, ThemeConfig> = {
     name: 'Clínica Odontológica Zucato',
     logo: '/Logo.png',
     colors: {
-      primary: '#1e40af', // brand-blue
-      secondary: '#f59e0b', // brand-gold
-      accent: '#ffffff', // brand-white
-      background: '#ffffff',
-      text: '#1f2937',
-      border: '#e5e7eb'
+      primary: '#153a5b',
+      secondary: '#b58a57',
+      accent: '#fffaf3',
+      background: '#f6f1e8',
+      text: '#203040',
+      border: '#d8c7ae'
     },
     brand: {
       name: 'Clínica Odontológica Zucato',
-      slogan: 'Cuidando do seu sorriso'
+      slogan: 'Implantes dentários com acolhimento, precisão e confiança'
     }
   },
   // Exemplo de outro tema - pode ser adicionado dinamicamente

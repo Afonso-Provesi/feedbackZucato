@@ -1,19 +1,28 @@
 -- Tabela de Feedbacks
 CREATE TABLE feedbacks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 10),
   comment TEXT,
+  dentist_name VARCHAR(255),
+  dentist_rating INTEGER CHECK (dentist_rating >= 1 AND dentist_rating <= 10),
+  dentist_comment TEXT,
+  dentist_sentiment VARCHAR(10) CHECK (dentist_sentiment IN ('positivo', 'negativo', 'neutro')),
   sentiment VARCHAR(10) CHECK (sentiment IN ('positivo', 'negativo', 'neutro')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   is_anonymous BOOLEAN DEFAULT false,
   patient_name VARCHAR(255),
-  source VARCHAR(50) DEFAULT 'whatsapp'
+  source VARCHAR(50) DEFAULT 'whatsapp',
+  device_fingerprint VARCHAR(64)
 );
 
 -- Índices para performance
 CREATE INDEX idx_feedbacks_created_at ON feedbacks(created_at DESC);
 CREATE INDEX idx_feedbacks_sentiment ON feedbacks(sentiment);
 CREATE INDEX idx_feedbacks_rating ON feedbacks(rating);
+CREATE INDEX idx_feedbacks_device_fingerprint ON feedbacks(device_fingerprint);
+CREATE INDEX idx_feedbacks_device_created_at ON feedbacks(device_fingerprint, created_at);
+CREATE INDEX idx_feedbacks_dentist_name ON feedbacks(dentist_name);
+CREATE INDEX idx_feedbacks_dentist_rating ON feedbacks(dentist_rating);
 
 -- Tabela de Administradores
 CREATE TABLE admins (
@@ -23,12 +32,14 @@ CREATE TABLE admins (
   password_hash VARCHAR(255) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   invited_by_email VARCHAR(255),
-  is_active BOOLEAN DEFAULT true
+  is_active BOOLEAN DEFAULT true,
+  role VARCHAR(16) NOT NULL DEFAULT 'admin' CHECK (role IN ('owner', 'admin'))
 );
 
 -- Índice para email
 CREATE INDEX idx_admins_email ON admins(email);
 CREATE INDEX idx_admins_auth_user_id ON admins(auth_user_id);
+CREATE UNIQUE INDEX idx_admins_single_owner ON admins(role) WHERE role = 'owner';
 
 -- Row Level Security (RLS)
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;

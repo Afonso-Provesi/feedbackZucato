@@ -1,4 +1,6 @@
-# 🚀 Tutorial de Deploy - Clínica Zucato Feedback System
+# Tutorial de Deploy - Clínica Zucato Feedback System
+
+Versão alvo: 1.1.0
 
 ## Opção 1: VERCEL (Recomendado - Melhor para Next.js)
 
@@ -41,15 +43,16 @@ git push -u origin main
 
 Na página de configuração da Vercel, há uma seção "Environment Variables":
 
-Adicione todas as variáveis do seu `.env.local`:
+Adicione as variáveis do projeto com valores de produção:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://jdzbffrnbzjsljnzlqmh.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Neo-uC2HShjnyryr0wvguw_FKa0lnuy
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-ENCRYPTION_KEY=3a4c7f9b2e1d8a5f6c9e2b4d7f1a3c5e8b0d2f4a6c8e1b3d5f7a9c0e2b4d6f
-ADMIN_SECRET=your_secure_admin_secret
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
+ENCRYPTION_KEY=sua-chave-de-encriptacao
+ADMIN_SECRET=seu-admin-secret
 NEXT_PUBLIC_API_URL=https://SEU_DOMINIO_VERCEL.vercel.app
+PRIMARY_ADMIN_EMAIL=seu-email-principal@dominio.com
 ```
 
 #### 4. Clique em "Deploy"
@@ -157,7 +160,7 @@ node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
 ### Login no Admin
 1. Acesse `https://seu-projeto.vercel.app/admin/login`
 2. Use as credenciais do admin criado
-3. Verifique o dashboard em `/admin/dashboard`
+3. Verifique o dashboard em `/autumn/audit`
 
 ### Enviar Feedback
 1. Acesse `https://seu-projeto.vercel.app`
@@ -227,7 +230,7 @@ node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
 
 4. **Teste**
    - Acesse seu-projeto.vercel.app
-   - Login em /admin/login
+   - Login em /autumn/login
    - Envie feedback teste
 
 **Pronto!** 🎉

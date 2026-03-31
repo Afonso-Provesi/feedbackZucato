@@ -18,12 +18,32 @@ interface Stats {
     negativo: number
     neutro: number
   }
+  clinicRatingDistribution: Array<{
+    rating: number
+    total: number
+  }>
+}
+
+interface DentistPerformance {
+  dentistName: string
+  total: number
+  avgRating: number
+  aproveitamento: string
+  sentimentBreakdown: {
+    positivo: number
+    negativo: number
+    neutro: number
+  }
 }
 
 interface Feedback {
   id: string
   rating: number
   comment: string | null
+  dentist_name: string | null
+  dentist_rating: number | null
+  dentist_comment: string | null
+  dentist_sentiment: 'positivo' | 'negativo' | 'neutro' | null
   sentiment: 'positivo' | 'negativo' | 'neutro' | null
   created_at: string
   patient_name: string | null
@@ -34,6 +54,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [evolution, setEvolution] = useState<Array<{ date: string; media: string }>>([])
+  const [dentistPerformance, setDentistPerformance] = useState<DentistPerformance[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedSentiment, setSelectedSentiment] = useState('todos')
   const [dateFrom, setDateFrom] = useState('')
@@ -55,6 +76,11 @@ export default function DashboardPage() {
         if (!evolutionResponse.ok) throw new Error('Erro ao buscar evolução')
         const evolutionData = await evolutionResponse.json()
         setEvolution(evolutionData)
+
+        const dentistResponse = await fetch('/api/admin/dentist-performance')
+        if (!dentistResponse.ok) throw new Error('Erro ao buscar dados por dentista')
+        const dentistData = await dentistResponse.json()
+        setDentistPerformance(dentistData)
 
         // Buscar feedbacks
         await handleFilter('todos')
@@ -153,7 +179,13 @@ export default function DashboardPage() {
     <>
       <Toaster position="top-center" />
       <div>
-        <h2 className="text-3xl font-bold text-gray-800 mb-8">Dashboard de Feedback</h2>
+        <section className="mb-8 rounded-[32px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,250,243,0.66))] p-6 shadow-[0_24px_60px_rgba(21,58,91,0.1)] backdrop-blur md:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)]">Visão Executiva</p>
+          <h2 className="mt-3 text-4xl font-semibold text-[var(--color-primary)]">Dashboard de Feedback</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-soft)] md:text-base">
+            Monitore satisfação, comentários recentes, evolução das notas e atividade da página em um ambiente visual mais alinhado à identidade institucional.
+          </p>
+        </section>
 
         <AdminAccountsPanel />
 
@@ -168,7 +200,9 @@ export default function DashboardPage() {
         {/* Gráficos */}
         <DashboardCharts
           sentimentBreakdown={stats.sentimentBreakdown}
+          clinicRatingDistribution={stats.clinicRatingDistribution}
           evolution={evolution}
+          dentistPerformance={dentistPerformance}
         />
 
         {/* Estatísticas de Visitantes */}
@@ -182,31 +216,31 @@ export default function DashboardPage() {
         />
 
         {/* Filtro de Data */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Filtrar por Data</h3>
+        <div className="rounded-[28px] border border-white/60 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_18px_44px_rgba(21,58,91,0.08)] mb-6">
+          <h3 className="text-2xl font-semibold text-[var(--color-primary)] mb-4">Filtrar por Data</h3>
           <div className="flex gap-4 flex-wrap">
             <div className="flex flex-col">
-              <label className="text-sm font-semibold text-gray-600 mb-2">Data Inicial</label>
+              <label className="text-sm font-semibold text-[var(--text-soft)] mb-2">Data Inicial</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                className="px-4 py-3 border border-[rgba(21,58,91,0.12)] rounded-2xl bg-[rgba(255,250,243,0.8)] focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
               />
             </div>
             <div className="flex flex-col">
-              <label className="text-sm font-semibold text-gray-600 mb-2">Data Final</label>
+              <label className="text-sm font-semibold text-[var(--text-soft)] mb-2">Data Final</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                className="px-4 py-3 border border-[rgba(21,58,91,0.12)] rounded-2xl bg-[rgba(255,250,243,0.8)] focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
               />
             </div>
             <div className="flex flex-col justify-end">
               <button
                 onClick={handleDateChange}
-                className="px-6 py-2 bg-brand-blue text-white rounded-lg font-semibold hover:bg-opacity-90 transition-all"
+                className="px-6 py-3 rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),#245783)] text-white font-semibold shadow-[0_16px_30px_rgba(21,58,91,0.2)] transition-all hover:-translate-y-0.5"
               >
                 Aplicar Filtro
               </button>

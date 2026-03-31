@@ -1,9 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminSession } from '@/lib/auth'
+import { validateSupabaseAdminAccessToken } from '@/lib/adminAuth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await validateAdminSession()
+    const authHeader = req.headers.get('authorization')
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+
+    const session = bearerToken
+      ? await validateSupabaseAdminAccessToken(bearerToken)
+      : await validateAdminSession()
+
     if (!session) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }

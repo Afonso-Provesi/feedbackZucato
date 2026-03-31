@@ -4,11 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import StarRating from './StarRating'
 import toast, { Toaster } from 'react-hot-toast'
+import { DENTISTS } from '@/lib/dentists'
 
 export default function FeedbackForm() {
   const router = useRouter()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [dentistName, setDentistName] = useState('')
+  const [dentistRating, setDentistRating] = useState(0)
+  const [dentistComment, setDentistComment] = useState('')
   const [patientName, setPatientName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -22,6 +26,21 @@ export default function FeedbackForm() {
 
     if (rating < 1 || rating > 10) {
       toast.error('Avaliação deve estar entre 1 e 10')
+      return
+    }
+
+    if (!dentistName) {
+      toast.error('Por favor, selecione o dentista responsável pelo atendimento')
+      return
+    }
+
+    if (dentistRating === 0) {
+      toast.error('Por favor, selecione uma nota para o dentista')
+      return
+    }
+
+    if (dentistRating < 1 || dentistRating > 10) {
+      toast.error('A nota do dentista deve estar entre 1 e 10')
       return
     }
 
@@ -41,6 +60,9 @@ export default function FeedbackForm() {
         body: JSON.stringify({
           rating,
           comment: comment || null,
+          dentistName,
+          dentistRating,
+          dentistComment: dentistComment || null,
           isAnonymous: false,
           patientName: patientName.trim(),
           source: 'whatsapp',
@@ -56,11 +78,9 @@ export default function FeedbackForm() {
           errorMessage = errorData.error || errorMessage
           errorDetails = errorData.details || ''
         } catch (parseError) {
-          // Se não conseguir fazer parse do JSON, usar mensagem genérica
           console.error('Erro ao fazer parse da resposta:', parseError)
         }
 
-        // Mostrar mensagem detalhada se disponível
         if (errorDetails) {
           toast.error(`${errorMessage}\n\n${errorDetails}`)
         } else {
@@ -86,34 +106,110 @@ export default function FeedbackForm() {
     <>
       <Toaster position="top-center" />
       <form onSubmit={handleSubmit} className="w-full">
-        <StarRating value={rating} onChange={setRating} />
+        <div className="rounded-[28px] border border-[rgba(181,138,87,0.18)] bg-white/75 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)]">
+            Etapa 1
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[var(--text-soft)]">
+            Escolha a nota que melhor representa como você se sentiu durante o atendimento.
+          </p>
 
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Quer nos contar um pouco mais sobre sua experiência?"
-          className="w-full p-4 border border-gray-300 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent resize-none"
-          rows={4}
-          maxLength={500}
-        />
+          <StarRating value={rating} onChange={setRating} />
 
-        <input
-          type="text"
-          value={patientName}
-          onChange={(e) => setPatientName(e.target.value)}
-          placeholder="Seu nome"
-          className="w-full p-4 border border-gray-300 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent"
-          maxLength={100}
-          required
-        />
+          <label className="mt-5 block text-sm font-semibold text-[var(--color-primary)]">
+            Comentário sobre a clínica
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Conte como foi seu atendimento, ambiente, recepção ou tratamento."
+            className="mt-2 w-full resize-none rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
+            rows={4}
+            maxLength={500}
+          />
+          <p className="mt-2 text-right text-xs text-[var(--text-soft)]">{comment.length}/500</p>
+        </div>
+
+        <div className="mt-5 rounded-[28px] border border-[rgba(181,138,87,0.18)] bg-white/75 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)]">
+            Etapa 2
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[var(--text-soft)]">
+            Selecione o dentista e registre uma nota específica para o atendimento recebido.
+          </p>
+
+          <label className="mt-5 block text-sm font-semibold text-[var(--color-primary)]">
+            Dentista responsável
+          </label>
+          <select
+            value={dentistName}
+            onChange={(e) => setDentistName(e.target.value)}
+            className="mt-2 w-full rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
+            required
+          >
+            <option value="">Selecione um dentista</option>
+            {DENTISTS.map((dentist) => (
+              <option key={dentist} value={dentist}>
+                {dentist}
+              </option>
+            ))}
+          </select>
+
+          <div className="mt-5 rounded-[22px] border border-[rgba(21,58,91,0.08)] bg-[rgba(255,250,243,0.55)] p-4">
+            <p className="text-sm font-semibold text-[var(--color-primary)]">Nota para o dentista</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+              Avalie especificamente a condução do atendimento pelo profissional.
+            </p>
+            <StarRating value={dentistRating} onChange={setDentistRating} />
+          </div>
+
+          <label className="mt-5 block text-sm font-semibold text-[var(--color-primary)]">
+            Comentário sobre o dentista
+          </label>
+          <textarea
+            value={dentistComment}
+            onChange={(e) => setDentistComment(e.target.value)}
+            placeholder="Se desejar, conte como foi a atenção, clareza e cuidado do dentista."
+            className="mt-2 w-full resize-none rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
+            rows={4}
+            maxLength={500}
+          />
+          <p className="mt-2 text-right text-xs text-[var(--text-soft)]">{dentistComment.length}/500</p>
+        </div>
+
+        <div className="mt-5 rounded-[28px] border border-[rgba(21,58,91,0.08)] bg-[rgba(255,255,255,0.78)] p-5 md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)]">
+            Etapa 3
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[var(--text-soft)]">
+            Informe sua identificação para registrar a avaliação com segurança.
+          </p>
+
+          <label className="mt-5 block text-sm font-semibold text-[var(--color-primary)]">
+            Seu nome
+          </label>
+          <input
+            type="text"
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
+            placeholder="Digite seu nome"
+            className="mt-2 w-full rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
+            maxLength={100}
+            required
+          />
+        </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-brand-blue text-white py-3 rounded-lg font-semibold hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-6 w-full rounded-[22px] bg-[linear-gradient(135deg,var(--color-primary),#245783)] px-6 py-4 text-base font-semibold text-white shadow-[0_18px_36px_rgba(21,58,91,0.24)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_40px_rgba(21,58,91,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isLoading ? 'Enviando...' : 'Enviar avaliação'}
         </button>
+
+        <p className="mt-4 text-center text-xs leading-6 text-[var(--text-soft)]">
+          Seus dados são usados apenas para registrar sua experiência com segurança e melhorar nosso atendimento.
+        </p>
       </form>
     </>
   )

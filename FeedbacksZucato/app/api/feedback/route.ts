@@ -3,6 +3,7 @@ import { saveFeedback, supabaseAdmin } from '@/lib/supabase'
 import { analyzeSentiment } from '@/lib/sentiment'
 import { sanitizeInput, validateRating, checkRateLimit } from '@/lib/security'
 import { generateDeviceFingerprint } from '@/lib/crypto'
+import { isValidDentistName } from '@/lib/dentists'
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,12 +41,26 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { rating, comment, isAnonymous, patientName, source } = body
+    const { rating, comment, isAnonymous, patientName, source, dentistName, dentistRating, dentistComment } = body
 
     // Validação
     if (!validateRating(rating)) {
       return NextResponse.json(
         { error: 'Avaliação inválida. Deve ser um número de 1 a 10.' },
+        { status: 400 }
+      )
+    }
+
+    if (!dentistName || !isValidDentistName(dentistName)) {
+      return NextResponse.json(
+        { error: 'Selecione um dentista válido.' },
+        { status: 400 }
+      )
+    }
+
+    if (!validateRating(dentistRating)) {
+      return NextResponse.json(
+        { error: 'A avaliação do dentista deve ser um número de 1 a 10.' },
         { status: 400 }
       )
     }
@@ -76,14 +91,20 @@ export async function POST(req: NextRequest) {
     // Sanitizar inputs
     const sanitizedComment = comment ? sanitizeInput(comment) : null
     const sanitizedName = patientName ? sanitizeInput(patientName) : null
+    const sanitizedDentistComment = dentistComment ? sanitizeInput(dentistComment) : null
 
-    // Analisar sentimento se houver comentário
-    const sentiment = sanitizedComment ? analyzeSentiment(sanitizedComment) : null
+    // Analisar sentimento considerando texto e nota atribuída
+    const sentiment = analyzeSentiment(sanitizedComment || '', parseInt(rating))
+    const dentistSentiment = analyzeSentiment(sanitizedDentistComment || '', parseInt(dentistRating))
 
     // Salvar no banco
     await saveFeedback({
       rating: parseInt(rating),
       comment: sanitizedComment,
+      dentist_name: dentistName,
+      dentist_rating: parseInt(dentistRating),
+      dentist_comment: sanitizedDentistComment,
+      dentist_sentiment: dentistSentiment,
       sentiment,
       is_anonymous: isAnonymous,
       patient_name: isAnonymous ? null : sanitizedName,
@@ -112,6 +133,9 @@ export async function POST(req: NextRequest) {
       } else if (error.message.includes('relation') || error.message.includes('table')) {
         errorMessage = 'Tabela não encontrada no Supabase'
         errorDetails = 'Execute o SQL em database.sql no painel do Supabase'
+      } else if (error.message.includes('column') || error.message.includes('schema cache')) {
+        errorMessage = 'Estrutura do Supabase desatualizada'
+        errorDetails = 'Execute o SQL de scripts/migration-dentist-feedback.sql no painel do Supabase para criar as colunas de avaliação do dentista.'
       }
     }
 
