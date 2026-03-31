@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const checkAccess = async () => {
       try {
         // Verificar se o caminho da URL é válido
-        const currentPath = window.location.pathname.split('/')[2] // /admin/[path]
+        const currentPath = window.location.pathname
         if (!isValidAdminPath(currentPath)) {
           router.push('/404') // Redirecionar para 404 se caminho inválido
           return
