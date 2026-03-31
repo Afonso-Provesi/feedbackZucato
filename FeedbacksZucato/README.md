@@ -25,8 +25,8 @@ Sistema web completo para coleta, análise e visualização de feedback de pacie
 ### Backend
 - **Supabase** - PostgreSQL + APIs
 - **Next.js API Routes** - API REST
-- **JWT (Jose)** - Autenticação
-- **Bcrypt** - Hash de senhas
+- **Supabase Auth** - Autenticação administrativa
+- **TOTP MFA** - Verificação em duas etapas com app autenticador
 
 ## 📦 Instalação
 
@@ -52,7 +52,6 @@ Edite `.env.local` com suas credenciais Supabase:
 NEXT_PUBLIC_SUPABASE_URL=sua_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
 SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
-ADMIN_SECRET=um_secret_seguro_aleatorio
 ```
 
 ### Passo 3: Configurar banco de dados
@@ -61,19 +60,13 @@ ADMIN_SECRET=um_secret_seguro_aleatorio
 3. Execute o SQL para criar as tabelas
 
 ### Passo 4: Criar usuário administrador
-```sql
-INSERT INTO admins (email, password_hash) VALUES (
-  'admin@clinicazucato.com',
-  'seu_hash_bcrypt_aqui'
-);
+Use o script abaixo para criar o usuário no Supabase Auth e vinculá-lo à tabela `admins`:
+
+```bash
+node scripts/create-admin.js
 ```
 
-Para gerar o hash, use:
-```javascript
-import { hashPassword } from '@/lib/security'
-const hash = await hashPassword('sua_senha')
-console.log(hash)
-```
+Veja o fluxo completo em [SUPABASE_AUTH_SETUP.md](SUPABASE_AUTH_SETUP.md).
 
 ### Passo 5: Executar desenvolvimento
 ```bash
@@ -134,8 +127,8 @@ Acesse http://localhost:3000
 - ✅ **HTTPS** - Headers de segurança configurados
 - ✅ **Validação de inputs** - Whitelist de caracteres permitidos
 - ✅ **Sanitização XSS** - Remoção de tags HTML perigosas
-- ✅ **Hash de senhas** - Bcrypt com 10 rounds
-- ✅ **Proteção de rotas** - JWT para admin
+- ✅ **Sessão administrativa** - Supabase Auth com cookies SSR
+- ✅ **MFA** - TOTP com aplicativo autenticador
 - ✅ **Rate limiting** - Limite de requisições por IP
 - ✅ **Headers de segurança:**
   - X-Content-Type-Options: nosniff
@@ -159,7 +152,6 @@ O sistema classifica comentários automaticamente em:
 - `GET /api/admin/stats` - Estatísticas gerais
 - `GET /api/admin/evolution` - Evolução temporal
 - `GET /api/admin/feedbacks` - Lista de feedbacks com filtros
-- `POST /api/auth/login` - Login administrativo
 - `POST /api/auth/logout` - Logout
 - `GET /api/auth/check` - Verificar autenticação
 

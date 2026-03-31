@@ -19,13 +19,16 @@ CREATE INDEX idx_feedbacks_rating ON feedbacks(rating);
 CREATE TABLE admins (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email VARCHAR(255) UNIQUE NOT NULL,
+  auth_user_id UUID UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  invited_by_email VARCHAR(255),
   is_active BOOLEAN DEFAULT true
 );
 
 -- Índice para email
 CREATE INDEX idx_admins_email ON admins(email);
+CREATE INDEX idx_admins_auth_user_id ON admins(auth_user_id);
 
 -- Row Level Security (RLS)
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;

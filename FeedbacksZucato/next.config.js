@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  turbopack: {
+    root: __dirname,
+  },
   headers: async () => {
     return [
       {
