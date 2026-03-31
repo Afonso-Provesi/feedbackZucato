@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-body: 'Manrope', sans-serif;
+  --font-heading: 'Cormorant Garamond', serif;
+  --surface-primary: rgba(255, 250, 243, 0.88);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-muted: rgba(21, 58, 91, 0.06);
+  --text-soft: rgba(32, 48, 64, 0.72);
+  --shadow-soft: 0 18px 50px rgba(21, 58, 91, 0.12);
+  --shadow-strong: 0 28px 70px rgba(21, 58, 91, 0.18);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -13,18 +24,42 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background:
+    radial-gradient(circle at top left, rgba(181, 138, 87, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(21, 58, 91, 0.14), transparent 24%),
+    linear-gradient(180deg, #fbf8f2 0%, var(--color-background) 42%, #f1ebe1 100%);
+  color: var(--color-text);
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(181, 138, 87, 0.24);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
 }
 
 .container-feedback {
-  max-width: 480px;
+  max-width: 1180px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 20px;
 }
 
 .star-rating {
@@ -51,8 +86,43 @@ body {
   color: #E5E5E5;
 }
 
+.glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 250, 243, 0.92) 100%);
+  border: 1px solid rgba(216, 199, 174, 0.7);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(181, 138, 87, 0.25);
+  background: rgba(255, 250, 243, 0.84);
+  color: var(--color-primary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 10px 16px;
+  text-transform: uppercase;
+}
+
+.section-kicker::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-secondary), #d7b58d);
+  box-shadow: 0 0 0 6px rgba(181, 138, 87, 0.12);
+}
+
 @media (max-width: 480px) {
   body {
     padding-bottom: 20px;
+  }
+
+  .container-feedback {
+    padding: 0 16px;
   }
 }

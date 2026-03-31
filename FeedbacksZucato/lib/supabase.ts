@@ -12,6 +12,10 @@ export interface Feedback {
   id?: string
   rating: number
   comment: string | null
+  dentist_name?: string | null
+  dentist_rating?: number | null
+  dentist_comment?: string | null
+  dentist_sentiment?: 'positivo' | 'neutro' | 'negativo' | null
   sentiment: 'positivo' | 'neutro' | 'negativo' | null
   created_at?: string
   is_anonymous: boolean
@@ -67,6 +71,13 @@ export async function getFeedbackStats() {
   const positivos = data.filter((f: any) => f.sentiment === 'positivo').length
   const negativos = data.filter((f: any) => f.sentiment === 'negativo').length
   const neutros = data.filter((f: any) => f.sentiment === 'neutro').length
+  const clinicRatingDistribution = Array.from({ length: 10 }, (_, index) => {
+    const score = index + 1
+    return {
+      rating: score,
+      total: data.filter((f: any) => f.rating === score).length,
+    }
+  })
 
   return {
     total,
@@ -78,7 +89,96 @@ export async function getFeedbackStats() {
       negativo: negativos,
       neutro: neutros,
     },
+    clinicRatingDistribution,
   }
+}
+
+export async function getDentistPerformance() {
+  const { data, error } = await supabaseAdmin
+    .from('feedbacks')
+    .select('dentist_name, dentist_rating, dentist_sentiment')
+    .not('dentist_name', 'is', null)
+
+  if (error) throw error
+
+  const grouped = new Map<string, {
+    total: number
+    ratings: number[]
+    positivo: number
+    negativo: number
+    neutro: number
+  }>()
+
+  const overall = {
+    total: 0,
+    ratings: [] as number[],
+    positivo: 0,
+    negativo: 0,
+    neutro: 0,
+  }
+
+  data.forEach((item: any) => {
+    if (!item.dentist_name) {
+      return
+    }
+
+    if (!grouped.has(item.dentist_name)) {
+      grouped.set(item.dentist_name, {
+        total: 0,
+        ratings: [],
+        positivo: 0,
+        negativo: 0,
+        neutro: 0,
+      })
+    }
+
+    const current = grouped.get(item.dentist_name)!
+    current.total += 1
+    overall.total += 1
+
+    if (typeof item.dentist_rating === 'number') {
+      current.ratings.push(item.dentist_rating)
+      overall.ratings.push(item.dentist_rating)
+    }
+
+    if (item.dentist_sentiment === 'positivo') current.positivo += 1
+    if (item.dentist_sentiment === 'negativo') current.negativo += 1
+    if (item.dentist_sentiment === 'neutro') current.neutro += 1
+    if (item.dentist_sentiment === 'positivo') overall.positivo += 1
+    if (item.dentist_sentiment === 'negativo') overall.negativo += 1
+    if (item.dentist_sentiment === 'neutro') overall.neutro += 1
+  })
+
+  const formatPerformance = (dentistName: string, values: typeof overall) => {
+    const avgRating = values.ratings.length > 0
+      ? values.ratings.reduce((sum, value) => sum + value, 0) / values.ratings.length
+      : 0
+
+    const aproveitamento = values.total > 0
+      ? (((values.positivo + values.neutro * 0.5) / values.total) * 100).toFixed(1)
+      : '0.0'
+
+    return {
+      dentistName,
+      total: values.total,
+      avgRating: Number(avgRating.toFixed(2)),
+      aproveitamento,
+      sentimentBreakdown: {
+        positivo: values.positivo,
+        negativo: values.negativo,
+        neutro: values.neutro,
+      },
+    }
+  }
+
+  return [
+    formatPerformance('Todos os dentistas', overall),
+    ...Array.from(grouped.entries())
+    .map(([dentistName, values]) => {
+      return formatPerformance(dentistName, values)
+    })
+    .sort((a, b) => a.dentistName.localeCompare(b.dentistName, 'pt-BR'))
+  ]
 }
 
 export async function getFeedbackEvolution(days: number = 30) {

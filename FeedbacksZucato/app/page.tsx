@@ -11,36 +11,35 @@ export default function Home() {
   const { theme } = useTheme()
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] py-8">
+    <main className="flex min-h-screen items-center justify-center py-6 sm:py-8">
       <div className="container-feedback w-full">
-        {/* Logo da clínica */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            <Image
-              src={theme.logo}
-              alt={theme.brand.name}
-              width={120}
-              height={120}
-              className="object-contain"
-            />
+        <div className="mx-auto max-w-[520px]">
+          <div className="mb-6 text-center">
+            <div className="mb-4 inline-flex rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-[0_20px_40px_rgba(21,58,91,0.08)]">
+              <Image
+                src={theme.logo}
+                alt={theme.brand.name}
+                width={96}
+                height={96}
+                className="object-contain"
+              />
+            </div>
+            <h1 className="text-3xl font-semibold text-[var(--color-primary)] sm:text-4xl">
+              Como foi sua experiência hoje?
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-soft)] sm:text-base">
+              Sua resposta é rápida e nos ajuda a melhorar o atendimento.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-[var(--color-primary)]">{theme.brand.name}</h1>
-          {theme.brand.slogan && (
-            <p className="text-gray-600 mt-2">{theme.brand.slogan}</p>
-          )}
+
+          <section className="glass-panel rounded-[28px] p-5 sm:p-7">
+            <FeedbackForm />
+          </section>
         </div>
 
-        {/* Card de feedback */}
-        <div className="bg-white rounded-lg shadow-lg p-8 border border-[var(--color-border)]">
-          <h2 className="text-xl font-semibold text-center text-[var(--color-text)] mb-8">
-            Como foi sua experiência conosco hoje?
-          </h2>
-
-          <FeedbackForm />
+        <div className="mx-auto mt-6 max-w-[520px]">
+          <AdBanner slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME || ''} />
         </div>
-
-        {/* Ad Banner */}
-        <AdBanner slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME || ''} />
       </div>
     </main>
   )

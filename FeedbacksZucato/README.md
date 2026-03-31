@@ -1,334 +1,175 @@
 # Clínica Odontológica Zucato - Sistema de Feedback
 
-## 📋 Visão Geral
+Versão atual: 1.1.0
 
-Sistema web completo para coleta, análise e visualização de feedback de pacientes da Clínica Odontológica Zucato. O sistema permite que pacientes avaliem suas experiências via links compartilhados por WhatsApp e oferece um dashboard administrativo com análises detalhadas.
+Sistema de coleta de feedback com formulário público, analytics operacionais e autenticação administrativa com Supabase Auth.
 
-## 🎨 Identidade Visual
+## Resumo
 
-- **Cores Principais:**
-  - Azul Institucional: `#1F1D6B`
-  - Dourado: `#B0743C`
-  - Branco: `#FFFFFF`
-- **Design:** Minimalista, elegante e profissional
-- **Layout:** Mobile-first com máximo de 480px de largura
+Esta versão consolida o produto em três frentes:
 
-## 🚀 Stack Tecnológica
+- coleta pública de feedback da clínica e do dentista
+- dashboard administrativo com métricas, gráficos e governança de admins
+- autenticação administrativa com recovery e MFA TOTP
 
-### Frontend
-- **Next.js 14** - Framework React
-- **React 18** - Biblioteca UI
-- **TailwindCSS** - Estilos
-- **Chart.js** - Gráficos interativos
-- **React Hot Toast** - Notificações
+## Funcionalidades
 
-### Backend
-- **Supabase** - PostgreSQL + APIs
-- **Next.js API Routes** - API REST
-- **Supabase Auth** - Autenticação administrativa
-- **TOTP MFA** - Verificação em duas etapas com app autenticador
+- formulário público em `/`
+- nota de 1 a 10 para clínica
+- nota de 1 a 10 para dentista
+- comentários separados para clínica e dentista
+- análise de sentimento combinando texto e nota
+- página de agradecimento em `/obrigado`
+- rastreamento de page views
+- dashboard em `/autumn/audit`
+- login em `/autumn/login`
+- cards, gráficos e tabela de feedbacks
+- desempenho por dentista
+- gestão de contas administrativas
+- redefinição de senha por link de recovery
+- MFA TOTP no login administrativo
 
-## 📦 Instalação
+## Stack
 
-### Pré-requisitos
-- Node.js 18+
-- npm ou yarn
-- Conta Supabase
+- Next.js 16.1.6
+- React 18
+- TypeScript
+- Tailwind CSS
+- Supabase Database + Auth
+- Chart.js
 
-### Passo 1: Clonar repositório
+## Instalação
+
+### 1. Instalar dependências
+
 ```bash
-git clone seu-repositorio
-cd zucato-feedback
 npm install
 ```
 
-### Passo 2: Configurar variáveis de ambiente
-```bash
-cp .env.example .env.local
-```
+### 2. Configurar `.env.local`
 
-Edite `.env.local` com suas credenciais Supabase:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anon
 SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
+ENCRYPTION_KEY=hex_com_64_caracteres
+ADMIN_SECRET=segredo_forte
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NODE_ENV=development
+ALLOW_DEV_2FA_FALLBACK=true
+ADMIN_PATH=/autumn/audit
 ```
 
-### Passo 3: Configurar banco de dados
-1. Copie o conteúdo de `database.sql`
-2. Acesse Supabase SQL Editor
-3. Execute o SQL para criar as tabelas
+### 3. Aplicar schema no Supabase
 
-### Passo 4: Criar usuário administrador
-Use o script abaixo para criar o usuário no Supabase Auth e vinculá-lo à tabela `admins`:
+Execute `database.sql` no SQL Editor do Supabase.
+
+### 4. Aplicar migrations complementares
+
+Execute também:
+
+- `scripts/migration-device-fingerprint.sql`
+- `scripts/migration-dentist-feedback.sql`
+- `scripts/migration-admin-management.sql`
+
+### 5. Criar admin inicial
 
 ```bash
 node scripts/create-admin.js
 ```
 
-Veja o fluxo completo em [SUPABASE_AUTH_SETUP.md](SUPABASE_AUTH_SETUP.md).
+### 6. Executar localmente
 
-### Passo 5: Executar desenvolvimento
 ```bash
 npm run dev
 ```
 
-Acesse http://localhost:3000
+## Gestão de admins
 
-## 🎯 Funcionalidades
+### Criar ou atualizar um admin por script
 
-### 1. Página Pública de Feedback
-- Logo da clínica
-- Pergunta: "Como foi sua experiência conosco hoje?"
-- Sistema de avaliação com 5 estrelas (douradas)
-- Campo de comentário opcional
-- Opção de anonimato
-- Campo de nome (condicional)
-- Validação de inputs
+```bash
+node scripts/create-admin.js
+```
 
-**URL:** `http://localhost:3000`
+Se o email já existir no Supabase Auth, o script reaproveita a conta e atualiza a senha com a senha digitada.
 
-### 2. Página de Agradecimento
-- Mensagem de gratidão
-- Link para voltar
+### Resetar um email de teste
 
-**URL:** `http://localhost:3000/obrigado`
+```bash
+npm run reset-admin-email -- email@dominio.com
+```
 
-### 3. API de Feedback
-- **Endpoint:** `POST /api/feedback`
-- **Salva:** rating, comment, sentiment, created_at, is_anonymous, patient_name, source
-- **Análise automática:** Classificação de sentimento (positivo/negativo/neutro)
-- **Taxa limite:** 10 requisições por minuto por IP
+Esse comando remove o usuário do Supabase Auth e o vínculo na tabela `admins`.
 
-### 4. Dashboard Administrativo
-**URL:** `http://localhost:3000/admin/login`
+### Gerenciar pelo dashboard
 
-#### Cards de Estatísticas:
-- Média de avaliações
-- Total de avaliações
-- % Feedback positivo
-- % Feedback negativo
+O painel `Contas Administrativas` permite:
 
-#### Gráficos:
-- Gráfico de pizza: Distribuição de sentimentos
-- Gráfico de linha: Evolução temporal das avaliações
+- cadastrar admins
+- gerar link de definição de senha
+- ativar ou desativar contas
+- visualizar registros legados ou completos
 
-#### Tabela de Feedbacks:
-- Data
-- Avaliação (com estrelas)
-- Sentimento
-- Comentário
-- Nome do paciente (ou Anônimo)
-- **Filtros:** Todos, Positivos, Negativos, Neutros
+## Login administrativo
 
-## 🔒 Segurança
+Fluxo atual:
 
-### Implementado:
-- ✅ **HTTPS** - Headers de segurança configurados
-- ✅ **Validação de inputs** - Whitelist de caracteres permitidos
-- ✅ **Sanitização XSS** - Remoção de tags HTML perigosas
-- ✅ **Sessão administrativa** - Supabase Auth com cookies SSR
-- ✅ **MFA** - TOTP com aplicativo autenticador
-- ✅ **Rate limiting** - Limite de requisições por IP
-- ✅ **Headers de segurança:**
-  - X-Content-Type-Options: nosniff
-  - X-Frame-Options: DENY
-  - X-XSS-Protection: 1; mode=block
-  - Referrer-Policy: strict-origin-when-cross-origin
+1. admin entra com email e senha
+2. sistema valida Supabase Auth
+3. sistema confirma autorização em `admins`
+4. se não houver TOTP, abre enrollment
+5. se houver TOTP, exige verificação
 
-## 📊 Análise de Sentimento
+## Recovery de senha
 
-O sistema classifica comentários automaticamente em:
-- **Positivo** 😊 - Palavras-chave: ótimo, excelente, adorei, recomendo, etc.
-- **Negativo** 😞 - Palavras-chave: ruim, péssimo, decepcionado, problema, etc.
-- **Neutro** 😐 - Sem palavras-chave específicas
+1. gerar link de recovery
+2. abrir `/autumn/login?mode=recovery`
+3. sistema troca o `code` do link por sessão válida
+4. nova senha é salva com `updateUser`
 
-## 🤖 APIs Disponíveis
+## APIs principais
 
 ### Públicas
-- `POST /api/feedback` - Submeter feedback
 
-### Autenticadas (Admin)
-- `GET /api/admin/stats` - Estatísticas gerais
-- `GET /api/admin/evolution` - Evolução temporal
-- `GET /api/admin/feedbacks` - Lista de feedbacks com filtros
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/check` - Verificar autenticação
+- `POST /api/feedback`
+- `POST /api/track-page-view`
 
-## 📱 Compartilhamento via WhatsApp
+### Administrativas
 
-Para enviar o link de feedback via WhatsApp:
+- `GET /api/admin/stats`
+- `GET /api/admin/evolution`
+- `GET /api/admin/feedbacks`
+- `GET /api/admin/page-views`
+- `GET /api/admin/dentist-performance`
+- `GET /api/admin/admins`
+- `POST /api/admin/admins`
+- `PATCH /api/admin/admins`
+- `GET /api/auth/check`
+- `POST /api/auth/logout`
 
-```url
-https://seu-dominio.com/?utm_source=whatsapp&utm_campaign=feedback_paciente
-```
+## Build
 
-Ou com mensagem pré-formatada:
-```
-Olá! Agradecemos sua visita à Clínica Odontológica Zucato. Gostaria que avaliasse sua experiência:
-https://seu-dominio.com/
-```
-
-## 🚢 Deploy
-
-### Netlify
 ```bash
 npm run build
 ```
 
-### Vercel
-```bash
-vercel deploy
-```
+## Documentação relacionada
 
-### Ambiente Docker
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
+- `SETUP.md`
+- `DEPLOYMENT.md`
+- `DEPLOY_TUTORIAL.md`
+- `SUPABASE_AUTH_SETUP.md`
+- `SECURITY_SETUP.md`
+- `SHA256_MIGRATION.md`
+- `CHANGELOG.md`
 
-## 📝 Estrutura de Pastas
+## Versionamento semântico
 
-```
-zucato-feedback/
-├── app/
-│   ├── api/
-│   │   ├── admin/
-│   │   ├── auth/
-│   │   └── feedback/
-│   ├── admin/
-│   │   ├── dashboard/
-│   │   ├── login/
-│   │   └── layout.tsx
-│   ├── obrigado/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── globals.css
-├── components/
-│   ├── DashboardCards.tsx
-│   ├── DashboardCharts.tsx
-│   ├── FeedbackForm.tsx
-│   ├── FeedbackTable.tsx
-│   └── StarRating.tsx
-├── lib/
-│   ├── auth.ts
-│   ├── security.ts
-│   ├── sentiment.ts
-│   └── supabase.ts
-├── database.sql
-├── tailwind.config.js
-├── tsconfig.json
-└── package.json
-```
+O projeto passa a seguir SemVer:
 
-## 🐛 Troubleshooting
+- `MAJOR`: quebra compatibilidade
+- `MINOR`: adiciona funcionalidades compatíveis
+- `PATCH`: corrige bugs sem alterar o contrato esperado
 
-### Erro de Autenticação no Supabase
-- Verifique as chaves em `.env.local`
-- Confirme que as tabelas foram criadas (SQL Editor > Execute database.sql)
-
-### Gráficos não aparecem
-- Certifique-se que `chart.js-2` está instalado
-- Limpe cache: `npm cache clean --force`
-
-### Rate limit acionado
-- O sistema limita a 10 requisições por minuto
-- Aguarde 1 minuto antes de nova submissão
-
-## 📚 Recursos Adicionais
-
-- [Documentação Next.js](https://nextjs.org/docs)
-- [Supabase Docs](https://supabase.com/docs)
-- [TailwindCSS](https://tailwindcss.com/docs)
-- [Chart.js](https://www.chartjs.org/docs/)
-
-## 📄 Licença
-
-Todos os direitos reservados © 2026 Clínica Odontológica Zucato
-
-## ✉️ Suporte
-
-Para dúvidas ou problemas, entre em contato com a equipe de desenvolvimento.
-
----
-
-## 🐛 **Troubleshooting - Problemas Comuns**
-
-### **"Erro desconhecido" ao enviar feedback**
-**Causa:** Supabase não configurado
-**Solução:**
-1. Configure `.env.local` com credenciais reais do Supabase
-2. Execute `database.sql` no painel do Supabase
-3. Teste com `node scripts/test-api.js`
-
-### **Supabase em vermelho no editor**
-**Causa:** Dependências não instaladas ou cache do TypeScript
-**Solução:**
-```bash
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### **"Cannot find module '@supabase/supabase-js'"**
-**Causa:** Dependências não instaladas
-**Solução:**
-```bash
-npm install
-```
-
-### **Erro ao criar admin**
-**Causa:** Variáveis de ambiente não configuradas
-**Solução:**
-```bash
-node scripts/check-config.js
-# Configure .env.local se necessário
-```
-
-### **Gráficos não aparecem**
-**Causa:** Chart.js não carregou
-**Solução:** Recarregue a página ou execute `npm install`
-
-### **Logo não aparece**
-**Causa:** Arquivo não está em `/public/`
-**Solução:** Verifique se `Logo.png` está em `/public/Logo.png`
-
----
-
-## 📚 **Scripts Disponíveis**
-
-```bash
-npm run dev          # Inicia servidor de desenvolvimento
-npm run build        # Build para produção
-npm start            # Inicia servidor de produção
-npm run lint         # Verifica código
-
-# Scripts customizados
-bash setup.sh                    # Configuração automática
-node scripts/check-config.js     # Verifica configuração
-node scripts/create-admin.js     # Cria usuário admin
-node scripts/test-api.js         # Testa API
-bash generate-secret.sh          # Gera secret seguro
-```
-
----
-
-## 📞 **Suporte**
-
-Se ainda tiver problemas:
-
-1. Execute `node scripts/check-config.js` para verificar configuração
-2. Teste a API com `node scripts/test-api.js`
-3. Verifique os logs do console do navegador (F12)
-4. Consulte a documentação em `SETUP.md` e `DEPLOYMENT.md`
-
----
-
-**Versão:** 1.0.1
-**Última atualização:** 7 de março de 2026
-**Status:** ✅ Pronto para uso
+Esta release foi marcada como `1.1.0` porque consolida várias funcionalidades novas sem exigir ruptura estrutural de uso do produto.

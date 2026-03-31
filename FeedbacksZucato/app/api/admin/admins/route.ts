@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   findManagedAdminByEmail,
   formatProtectedAdminEmail,
+  getManagedAdminById,
   listManagedAdmins,
   updateManagedAdminStatus,
   upsertManagedAdmin,
@@ -13,6 +14,22 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 function randomPassword(): string {
   return `Tmp-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
+}
+
+function requireOwner(session: Awaited<ReturnType<typeof validateSupabaseAdminSession>>) {
+  if (!session) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  if (!session.canManageAdmins) {
+    return NextResponse.json({ error: 'Apenas o admin proprietário pode gerenciar administradores' }, { status: 403 })
+  }
+
+  return null
+}
+
+function getRecoveryRedirectUrl(req: NextRequest): string {
+  return `${req.nextUrl.origin}/autumn/login?mode=recovery`
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -81,7 +98,10 @@ async function createOrLoadAuthUser(email: string) {
 
   const existingUser = await findAuthUserByEmail(normalizedEmail)
   if (existingUser) {
-    return existingUser
+    return {
+      user: existingUser,
+      reused: true,
+    }
   }
 
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -90,17 +110,39 @@ async function createOrLoadAuthUser(email: string) {
     email_confirm: true,
   })
 
-  if (error || !data.user) {
-    throw error || new Error('Não foi possível criar o usuário no Supabase Auth')
+  if (error) {
+    const message = error.message.toLowerCase()
+
+    if (message.includes('already') || message.includes('registered') || message.includes('exists')) {
+      const duplicatedUser = await findAuthUserByEmail(normalizedEmail)
+      if (duplicatedUser) {
+        return {
+          user: duplicatedUser,
+          reused: true,
+        }
+      }
+    }
+
+    throw error
   }
 
-  return data.user
+  if (!data.user) {
+    throw new Error('Não foi possível criar o usuário no Supabase Auth')
+  }
+
+  return {
+    user: data.user,
+    reused: false,
+  }
 }
 
-async function generatePasswordSetupLink(email: string) {
+async function generatePasswordSetupLink(email: string, redirectTo: string) {
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'recovery',
     email,
+    options: {
+      redirectTo,
+    },
   })
 
   if (error) {
@@ -113,20 +155,29 @@ async function generatePasswordSetupLink(email: string) {
 export async function GET() {
   try {
     const session = await validateSupabaseAdminSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    const deniedResponse = requireOwner(session)
+    if (deniedResponse) {
+      return deniedResponse
     }
 
     const admins = await listManagedAdmins()
     const usersById = await listAuthUsersById()
 
     return NextResponse.json(
-      admins.map((admin) => ({
-        ...admin,
-        display_email: admin.auth_user_id ? usersById.get(admin.auth_user_id) || formatProtectedAdminEmail() : formatProtectedAdminEmail(),
-        is_legacy_only: !admin.auth_user_id,
-        invited_by_email: admin.invited_by_email ? `hash:${admin.invited_by_email.slice(0, 10)}...` : null,
-      })),
+      {
+        currentAdmin: {
+          id: session!.adminId,
+          email: session!.email,
+          role: session!.role,
+          canManageAdmins: session!.canManageAdmins,
+        },
+        admins: admins.map((admin) => ({
+          ...admin,
+          display_email: admin.auth_user_id ? usersById.get(admin.auth_user_id) || formatProtectedAdminEmail() : formatProtectedAdminEmail(),
+          is_legacy_only: !admin.auth_user_id,
+          invited_by_email: admin.invited_by_email ? `hash:${admin.invited_by_email.slice(0, 10)}...` : null,
+        })),
+      },
       { status: 200 }
     )
   } catch (error) {
@@ -138,9 +189,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await validateSupabaseAdminSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    const deniedResponse = requireOwner(session)
+    if (deniedResponse) {
+      return deniedResponse
     }
+
+    const ownerSession = session!
 
     const body = await req.json()
     const email = String(body.email || '').trim().toLowerCase()
@@ -150,26 +204,31 @@ export async function POST(req: NextRequest) {
     }
 
     const existingAdmin = await findManagedAdminByEmail(email)
-    const authUser = await createOrLoadAuthUser(email)
+    const authUserResult = await createOrLoadAuthUser(email)
     const adminRecord = await upsertManagedAdmin({
       email,
-      authUserId: authUser.id,
-      invitedByEmailHash: hashEmail(session.email),
+      authUserId: authUserResult.user.id,
+      invitedByEmailHash: hashEmail(ownerSession.email),
       isActive: true,
     })
-    const setupLink = await generatePasswordSetupLink(email)
+    const setupLink = await generatePasswordSetupLink(email, getRecoveryRedirectUrl(req))
 
     return NextResponse.json(
       {
         success: true,
         admin: {
           ...adminRecord,
-          display_email: authUser.email || formatProtectedAdminEmail(),
+          display_email: authUserResult.user.email || formatProtectedAdminEmail(),
           is_legacy_only: !adminRecord.auth_user_id,
           invited_by_email: adminRecord.invited_by_email ? `hash:${adminRecord.invited_by_email.slice(0, 10)}...` : null,
         },
         setupLink,
-        message: existingAdmin ? 'Admin atualizado e link de acesso gerado.' : 'Admin cadastrado e link de acesso gerado.',
+        reusedExistingAuthUser: authUserResult.reused,
+        message: existingAdmin
+          ? 'Admin atualizado e link de acesso gerado.'
+          : authUserResult.reused
+            ? 'Conta existente no Auth reaproveitada e link de acesso gerado.'
+            : 'Admin cadastrado e link de acesso gerado.',
       },
       { status: 200 }
     )
@@ -185,8 +244,9 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await validateSupabaseAdminSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    const deniedResponse = requireOwner(session)
+    if (deniedResponse) {
+      return deniedResponse
     }
 
     const body = await req.json()
@@ -198,6 +258,15 @@ export async function PATCH(req: NextRequest) {
 
       if (!adminId) {
         return NextResponse.json({ error: 'Admin inválido' }, { status: 400 })
+      }
+
+      const existingAdmin = await getManagedAdminById(adminId)
+      if (!existingAdmin) {
+        return NextResponse.json({ error: 'Admin não encontrado' }, { status: 404 })
+      }
+
+      if (existingAdmin.role === 'owner' && !isActive) {
+        return NextResponse.json({ error: 'O admin proprietário não pode ser desativado' }, { status: 400 })
       }
 
       const admin = await updateManagedAdminStatus(adminId, isActive)
@@ -220,8 +289,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Admin inválido' }, { status: 400 })
       }
 
-      const admins = await listManagedAdmins()
-      const admin = admins.find((item) => item.id === adminId)
+      const admin = await getManagedAdminById(adminId)
 
       if (!admin?.auth_user_id) {
         return NextResponse.json({ error: 'Registro legado sem vínculo com Supabase Auth' }, { status: 400 })
@@ -232,7 +300,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Não foi possível localizar o email do usuário no Supabase Auth' }, { status: 400 })
       }
 
-      const setupLink = await generatePasswordSetupLink(authEmail)
+      const setupLink = await generatePasswordSetupLink(authEmail, getRecoveryRedirectUrl(req))
       return NextResponse.json({ success: true, setupLink })
     }
 
