@@ -17,5 +17,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [process.env.ADMIN_PATH || '/autumn/audit']
+  matcher: ['/autumn/audit']
 }
