@@ -1,11 +1,9 @@
-// Caminho customizado: /autumn/audit para login e painel
+// Compatibilidade: sempre retorna true e /autumn/audit
 export function isValidAdminPath(path: string): boolean {
-  // Permite apenas /autumn/audit
-  return path === '/autumn/audit'
+  return true
 }
 
 export function getCurrentAdminPath(): string {
-  // Retorna o caminho do painel admin customizado
   return '/autumn/audit'
 }
 
