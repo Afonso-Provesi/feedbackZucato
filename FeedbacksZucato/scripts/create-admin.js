@@ -3,9 +3,8 @@
 /**
  * Script para criar usuário admin
  * Uso: node scripts/create-admin.js
- * 
- * Pede email e senha interativamente e salva no Supabase
- * Email é hasheado com SHA-256 para maior segurança
+ *
+ * Cria o usuário no Supabase Auth e garante o vínculo com a tabela admins.
  */
 
 // carregar variáveis de ambiente de .env.local (se existir)
@@ -13,7 +12,6 @@ require('dotenv').config({ path: '.env.local' })
 
 const readline = require('readline')
 const { createClient } = require('@supabase/supabase-js')
-const bcrypt = require('bcryptjs')
 const { createHash } = require('crypto')
 
 const rl = readline.createInterface({
@@ -32,7 +30,7 @@ function hashEmail(email) {
 
 async function main() {
   try {
-    console.log('\n🔐 Criar Usuário Admin - Clínica Zucato\n')
+    console.log('\n🔐 Criar Usuário Admin com Supabase Auth - Clínica Zucato\n')
 
     // Validar variáveis de ambiente
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -73,25 +71,36 @@ async function main() {
       throw new Error('Senhas não correspondem')
     }
 
-    // Hash da senha (bcrypt)
-    console.log('\n⏳ Gerando hash da senha...')
-    const passwordHash = await bcrypt.hash(password, 10)
-
     // Hash do email (SHA-256)
     console.log('⏳ Hasheando email (SHA-256)...')
-    const emailHash = hashEmail(email)
+    const normalizedEmail = email.trim().toLowerCase()
+    const emailHash = hashEmail(normalizedEmail)
 
-    // Salvar no banco
-    console.log('⏳ Salvando admin no banco...')
+    console.log('⏳ Criando usuário no Supabase Auth...')
+    const authResult = await supabase.auth.admin.createUser({
+      email: normalizedEmail,
+      password,
+      email_confirm: true,
+    })
+
+    if (authResult.error) {
+      throw new Error(`Erro ao criar usuário no Auth: ${authResult.error.message}`)
+    }
+
+    console.log('⏳ Salvando vínculo na tabela admins...')
     const { data, error } = await supabase
       .from('admins')
-      .insert([
+      .upsert([
         {
           email: emailHash,
-          password_hash: passwordHash,
+          auth_user_id: authResult.data.user.id,
+          password_hash: 'SUPABASE_AUTH_MANAGED',
+          invited_by_email: 'script:create-admin',
           is_active: true,
         },
-      ])
+      ], {
+        onConflict: 'email',
+      })
       .select()
 
     if (error) {
@@ -99,11 +108,12 @@ async function main() {
     }
 
     console.log('\n✅ Admin criado com sucesso!\n')
-    console.log(`Email: ${email}`)
+    console.log(`Email Auth: ${normalizedEmail}`)
     console.log(`Email Hash (armazenado): ${emailHash.slice(0, 16)}...`)
-    console.log(`ID: ${data[0].id}`)
+    console.log(`ID Auth: ${authResult.data.user.id}`)
+    console.log(`ID Admin: ${data[0].id}`)
     console.log(`Criado em: ${new Date(data[0].created_at).toLocaleString('pt-BR')}\n`)
-    console.log('🎉 Você já pode fazer login em /admin/login\n')
+    console.log('🎉 Você já pode fazer login em /autumn/login\n')
   } catch (error) {
     console.error('\n❌ Erro:', error.message, '\n')
     process.exit(1)

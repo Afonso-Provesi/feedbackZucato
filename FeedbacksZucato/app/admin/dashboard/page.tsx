@@ -5,6 +5,7 @@ import DashboardCards from '@/components/DashboardCards'
 import DashboardCharts from '@/components/DashboardCharts'
 import FeedbackTable from '@/components/FeedbackTable'
 import PageViewStats from '@/components/PageViewStats'
+import AdminAccountsPanel from '@/components/AdminAccountsPanel'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface Stats {
@@ -153,6 +154,8 @@ export default function DashboardPage() {
       <Toaster position="top-center" />
       <div>
         <h2 className="text-3xl font-bold text-gray-800 mb-8">Dashboard de Feedback</h2>
+
+        <AdminAccountsPanel />
 
         {/* Cards de Estatísticas */}
         <DashboardCards

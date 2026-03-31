@@ -33,6 +33,10 @@ export function validateEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
+export function validate2FACode(code: string): boolean {
+  return /^\d{6}$/.test(code)
+}
+
 export function validateRating(rating: unknown): boolean {
   const num = Number(rating)
   return !isNaN(num) && num >= 1 && num <= 10
@@ -65,4 +69,23 @@ export function checkRateLimit(ip: string, maxRequests: number = 10, windowMs: n
 
   current.count++
   return true
+}
+
+export function getClientIpFromHeaders(headers: Headers): string {
+  const forwardedFor = headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+
+  const realIp = headers.get('x-real-ip')
+  if (realIp) {
+    return realIp.trim()
+  }
+
+  const cloudflareIp = headers.get('cf-connecting-ip')
+  if (cloudflareIp) {
+    return cloudflareIp.trim()
+  }
+
+  return '127.0.0.1'
 }
