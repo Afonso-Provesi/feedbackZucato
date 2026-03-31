@@ -1,7 +1,1 @@
-'use client'
-
-import { ReactNode } from 'react'
-
-export default function AdminLoginLayout({ children }: { children: ReactNode }) {
-	return <>{children}</>
-}
+export { default } from '../../admin/login/layout'
