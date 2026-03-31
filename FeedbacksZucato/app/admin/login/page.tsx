@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
   const [adminPath, setAdminPath] = useState('')
 
   useEffect(() => {
-    // Obter o caminho dinâmico do admin
+    // Obter o caminho fixo do admin
     const path = getCurrentAdminPath()
     setAdminPath(path)
   }, [])
@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
 
       toast.success('Login realizado com sucesso!')
       setTimeout(() => {
-        router.push(`/admin/${adminPath}`)
+        router.push(adminPath)
       }, 1500)
     } catch (error) {
       console.error('Erro:', error)
