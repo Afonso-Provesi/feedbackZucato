@@ -11,29 +11,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { theme } = useTheme()
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isValidPath, setIsValidPath] = useState(false)
 
   useEffect(() => {
     const checkAccess = async () => {
       try {
-        // Verificar se o caminho da URL é válido
         const currentPath = window.location.pathname
         if (!isValidAdminPath(currentPath)) {
-          router.push('/404') // Redirecionar para 404 se caminho inválido
+          router.replace('/404')
           return
         }
-        setIsValidPath(true)
 
-        // Verificar autenticação
         const response = await fetch('/api/auth/check')
         if (response.ok) {
           setIsAuthenticated(true)
         } else {
           setIsAuthenticated(false)
+          router.replace('/autumn/login')
         }
       } catch (error) {
         console.error('Erro ao verificar acesso:', error)
         setIsAuthenticated(false)
+        router.replace('/autumn/login')
       } finally {
         setIsLoading(false)
       }
@@ -53,51 +51,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  // Renderiza children em qualquer caso (login não será bloqueado)
-  // A página de login é renderizada mesmo sem autenticação
-  // O dashboard vai redirecionar se não autenticado  
-  return (
-    <>
-      {isAuthenticated ? (
-        <div className="min-h-screen bg-gray-50">
-          {/* Header - só mostra se autenticado */}
-          <header className="bg-white shadow-sm border-b border-[var(--color-border)]">
-            <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Image
-                  src={theme.logo}
-                  alt={theme.brand.name}
-                  width={50}
-                  height={50}
-                  className="rounded"
-                />
-                <h1 className="text-2xl font-bold text-[var(--color-primary)]">Dashboard {theme.brand.name.split(' ')[0]}</h1>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    await fetch('/api/auth/logout', { method: 'POST' })
-                    router.push('/admin/login')
-                  } catch (error) {
-                    console.error('Erro ao fazer logout:', error)
-                  }
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-              >
-                Logout
-              </button>
-            </div>
-          </header>
+  if (!isAuthenticated) {
+    return null
+  }
 
-          {/* Conteúdo */}
-          <main className="max-w-7xl mx-auto px-4 py-8">
-            {children}
-          </main>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b border-[var(--color-border)]">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Image
+              src={theme.logo}
+              alt={theme.brand.name}
+              width={50}
+              height={50}
+              className="rounded"
+            />
+            <h1 className="text-2xl font-bold text-[var(--color-primary)]">Dashboard {theme.brand.name.split(' ')[0]}</h1>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' })
+                router.replace('/autumn/login')
+              } catch (error) {
+                console.error('Erro ao fazer logout:', error)
+              }
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+          >
+            Logout
+          </button>
         </div>
-      ) : (
-        // Renderiza children sem header (página de login)
-        <>{children}</>
-      )}
-    </>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {children}
+      </main>
+    </div>
   )
 }
