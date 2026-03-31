@@ -1,29 +1,12 @@
-// Caminho fixo e estático para admin, definido apenas por ADMIN_PATH do .env.local
+// Caminho customizado: /autumn/audit para login e painel
 export function isValidAdminPath(path: string): boolean {
-  if (typeof window === 'undefined') {
-    return process.env.ADMIN_PATH === path
-  }
-  // @ts-ignore
-  if (window.ADMIN_PATH) {
-    // @ts-ignore
-    return window.ADMIN_PATH === path
-  }
-  return false
+  // Permite apenas /autumn/audit
+  return path === '/autumn/audit'
 }
 
 export function getCurrentAdminPath(): string {
-  if (typeof window === 'undefined') {
-    if (process.env.ADMIN_PATH) {
-      return process.env.ADMIN_PATH
-    }
-    throw new Error('ADMIN_PATH não definido no ambiente do servidor')
-  }
-  // @ts-ignore
-  if (window.ADMIN_PATH) {
-    // @ts-ignore
-    return window.ADMIN_PATH
-  }
-  throw new Error('ADMIN_PATH não definido no ambiente do navegador')
+  // Retorna o caminho do painel admin customizado
+  return '/autumn/audit'
 }
 
 // Função para definir caminho personalizado (apenas para desenvolvimento)

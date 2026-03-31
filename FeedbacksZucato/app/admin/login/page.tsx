@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
   const [adminPath, setAdminPath] = useState('')
 
   useEffect(() => {
-    // Obter o caminho fixo do admin
+    // Obter o caminho fixo do admin (/autumn/audit)
     const path = getCurrentAdminPath()
     setAdminPath(path)
   }, [])
