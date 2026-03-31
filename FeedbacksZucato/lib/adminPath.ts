@@ -21,12 +21,21 @@ export function generateSimpleAdminPath(): string {
 }
 
 // Função para gerar caminho complexo (palavra + caracteres aleatórios)
+// Função para gerar caminho obscuro tipo MdGRSpy/Login
+export function generateObscureAdminPath(): string {
+  // Gera uma string aleatória de 6-8 caracteres misturando maiúsculas/minúsculas
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  const len = Math.floor(Math.random() * 3) + 6 // 6 a 8 caracteres
+  let part = ''
+  for (let i = 0; i < len; i++) {
+    part += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return `${part}/Login`
+}
+
 export function generateComplexAdminPath(): string {
-  const baseWord = generateSimpleAdminPath()
-  const randomSuffix = Array.from({ length: 4 }, () =>
-    randomChars[Math.floor(Math.random() * randomChars.length)]
-  ).join('')
-  return `${baseWord}-${randomSuffix}`
+  // Mantém compatibilidade antiga, mas pode usar o obscuro se quiser
+  return generateObscureAdminPath()
 }
 
 // Função para gerar hash único para sessão
@@ -46,34 +55,34 @@ export function generateAdminSessionHash(): string {
 
 // Função para validar se um caminho é válido
 export function isValidAdminPath(path: string): boolean {
-  // Verificar se é uma palavra da wordlist
-  if (adminWordlist.includes(path)) return true
-
-  // Verificar se é palavra-da-wordlist + - + 4 caracteres
-  const complexPattern = /^([a-z]+)-([a-z0-9]{4})$/
-  const match = path.match(complexPattern)
-  if (match && adminWordlist.includes(match[1])) return true
-
+  // Só aceita o caminho fixo definido
+  if (typeof window === 'undefined') {
+    return process.env.ADMIN_PATH === path
+  }
+  // @ts-ignore
+  if (window.ADMIN_PATH) {
+    // @ts-ignore
+    return window.ADMIN_PATH === path
+  }
   return false
 }
 
 // Função para obter caminho atual do admin
 export function getCurrentAdminPath(): string {
+  // Sempre retorna o caminho fixo definido na variável de ambiente
   if (typeof window === 'undefined') {
-    // Server-side: usar variável de ambiente ou gerar
-    return process.env.ADMIN_PATH || generateComplexAdminPath()
+    if (process.env.ADMIN_PATH) {
+      return process.env.ADMIN_PATH
+    }
+    throw new Error('ADMIN_PATH não definido no ambiente do servidor')
   }
-
-  // Client-side: tentar do sessionStorage (mais seguro que localStorage)
-  const stored = sessionStorage.getItem('admin-path')
-  if (stored && isValidAdminPath(stored)) {
-    return stored
+  // Client-side: permite sobrescrever via window.ADMIN_PATH para testes
+  // @ts-ignore
+  if (window.ADMIN_PATH) {
+    // @ts-ignore
+    return window.ADMIN_PATH
   }
-
-  // Gerar novo se não existir
-  const newPath = generateComplexAdminPath()
-  sessionStorage.setItem('admin-path', newPath)
-  return newPath
+  throw new Error('ADMIN_PATH não definido no ambiente do navegador')
 }
 
 // Função para definir caminho personalizado (apenas para desenvolvimento)

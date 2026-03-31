@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Validação
     if (!validateRating(rating)) {
       return NextResponse.json(
-        { error: 'Avaliação inválida. Deve ser um número de 1 a 5.' },
+        { error: 'Avaliação inválida. Deve ser um número de 1 a 10.' },
         { status: 400 }
       )
     }

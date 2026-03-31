@@ -35,7 +35,7 @@ export function validateEmail(email: string): boolean {
 
 export function validateRating(rating: unknown): boolean {
   const num = Number(rating)
-  return !isNaN(num) && num >= 1 && num <= 5
+  return !isNaN(num) && num >= 1 && num <= 10
 }
 
 export function validatePhoneNumber(phone: string): boolean {
