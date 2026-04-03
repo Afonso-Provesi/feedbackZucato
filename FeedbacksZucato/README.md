@@ -1,37 +1,37 @@
 # Clínica Odontológica Zucato - Sistema de Feedback
 
-Versão atual: 1.1.0
+Versão documentada do projeto: 1.2.6
 
-Sistema de coleta de feedback com formulário público, analytics operacionais e autenticação administrativa com Supabase Auth.
+Este arquivo passou a concentrar a documentação operacional ativa do sistema. Os antigos guias separados de setup, deploy, segurança, auth, estrutura e personalização foram absorvidos aqui para reduzir redundância. O único documento histórico preservado fora daqui é `LEGACY_AUTH_NOTES.md`.
 
-## Resumo
+## Visão geral
 
-Esta versão consolida o produto em três frentes:
+O sistema entrega três frentes principais:
 
 - coleta pública de feedback da clínica e do dentista
-- dashboard administrativo com métricas, gráficos e governança de admins
-- autenticação administrativa com recovery e MFA TOTP
+- dashboard administrativo protegido em rotas mascaradas
+- autenticação administrativa com Supabase Auth SSR, recovery por email e MFA TOTP
 
-## Funcionalidades
+## O que existe hoje
 
 - formulário público em `/`
-- nota de 1 a 10 para clínica
-- nota de 1 a 10 para dentista
-- comentários separados para clínica e dentista
-- análise de sentimento combinando texto, nota e comentários mistos com prós e contras
 - página de agradecimento em `/obrigado`
-- rastreamento de page views
-- dashboard em `/autumn/audit`
-- login em `/autumn/login`
-- cards, gráficos e tabela de feedbacks
-- desempenho por dentista
-- gestão de contas administrativas
-- redefinição de senha por link de recovery
-- MFA TOTP no login administrativo
-- respostas públicas anônimas por padrão e por regra de banco
-- bloqueio centralizado de payloads suspeitos em campos de texto
-- auditoria persistente de entradas bloqueadas no dashboard administrativo
-- alertas por email para brute force e abuso no recovery
+- login administrativo em `/autumn/login`
+- dashboard administrativo em `/autumn/audit`
+- bloqueio explícito de `/admin/*` no proxy
+- nota de 0 a 10 para clínica e dentista
+- comentários separados para clínica e dentista
+- análise de sentimento com categorias `positivo`, `negativo`, `neutro` e `misto`
+- métricas gerais, evolução temporal, page views e desempenho por dentista
+- gestão de contas administrativas com compatibilidade para bases legadas
+- recuperação de senha por link enviado por email
+- MFA TOTP no fluxo administrativo
+- feedback público estritamente anônimo
+- proteção centralizada contra payloads suspeitos
+- auditoria persistente de entradas bloqueadas
+- alertas de brute force, falhas de MFA e abuso na recuperação de senha
+- rate limit com suporte a Upstash Redis e fallback em memória
+- suporte a tema por clínica via `NEXT_PUBLIC_THEME`
 
 ## Stack
 
@@ -39,225 +39,255 @@ Esta versão consolida o produto em três frentes:
 - React 18
 - TypeScript
 - Tailwind CSS
-- Supabase Database + Auth
+- Supabase Database + Auth SSR
 - Nodemailer
+- Chart.js
 
-## Configuração rápida
+## Estrutura funcional
 
-Crie `.env.local` com os valores do seu projeto:
+### Rotas públicas
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
-SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
-ENCRYPTION_KEY=hex-com-64-caracteres
-ADMIN_SECRET=segredo-forte
-NEXT_PUBLIC_API_URL=http://localhost:3000
-NODE_ENV=development
-ALLOW_DEV_2FA_FALLBACK=false
-ADMIN_PATH=/autumn/audit
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-RECOVERY_SMTP_HOST=smtp.gmail.com
-RECOVERY_SMTP_PORT=587
-RECOVERY_SMTP_USER=zucatorecovery@gmail.com
-RECOVERY_SMTP_PASS=senha-de-app-do-gmail
-RECOVERY_SMTP_FROM="Clinica Zucato <zucatorecovery@gmail.com>"
-SECURITY_ALERT_SMTP_HOST=
-SECURITY_ALERT_SMTP_PORT=587
-SECURITY_ALERT_SMTP_USER=
-SECURITY_ALERT_SMTP_PASS=
-SECURITY_ALERT_SMTP_FROM=
-SECURITY_ALERT_EMAILS=zucatorecovery@gmail.com
-RECOVERY_SMTP_OAUTH_CLIENT_ID=
-RECOVERY_SMTP_OAUTH_CLIENT_SECRET=
-RECOVERY_SMTP_OAUTH_REFRESH_TOKEN=
-SECURITY_ALERT_SMTP_OAUTH_CLIENT_ID=
-SECURITY_ALERT_SMTP_OAUTH_CLIENT_SECRET=
-SECURITY_ALERT_SMTP_OAUTH_REFRESH_TOKEN=
-```
-
-`RECOVERY_SMTP_*` define o remetente usado em 2FA e recuperação de senha. Se `SECURITY_ALERT_SMTP_*` ficar vazio, o sistema reaproveita automaticamente o mesmo Gmail do bloco de recovery para os alertas de segurança. `SECURITY_ALERT_EMAILS` define quem recebe esses alertas. Se os blocos novos não forem preenchidos, o sistema ainda aceita o `SMTP_*` antigo como fallback.
-
-Para Gmail, use senha de app da conta Google. Senha normal da conta nao autentica no SMTP.
-
-## Respostas anônimas
-
-O fluxo público agora salva todas as avaliações como anônimas:
-
-- a UI não pede mais identificação do paciente
-- a API ignora qualquer `patient_name` enviado
-- o banco aceita insert público apenas com `is_anonymous = true` e `patient_name IS NULL`
-
-Se a base atual já tiver dados antigos com identificação, execute `scripts/migration-anonymous-feedback.sql` para anonimizar o histórico e alinhar a policy.
-
-## Auditoria de entradas suspeitas
-
-O backend aplica validação centralizada nos campos de texto mais sensíveis e, quando detecta payload suspeito, bloqueia a requisição e tenta persistir o evento para auditoria.
-
-- o bloqueio responde com `400` e mensagem de conteúdo suspeito
-- o dashboard em `/autumn/audit` pode exibir os eventos recentes
-- a persistência depende da migration `scripts/migration-security-input-events.sql`
-
-### 3. Aplicar schema no Supabase
-
-Execute `database.sql` no SQL Editor do Supabase.
-
-### 4. Aplicar migrations complementares
-
-Execute também:
-
-- `scripts/migration-device-fingerprint.sql`
-- `scripts/migration-dentist-feedback.sql`
-- `scripts/migration-admin-management.sql`
-- `scripts/migration-dashboard-analytics.sql`
-- `scripts/migration-anonymous-feedback.sql`
-- `scripts/migration-security-input-events.sql`
-
-## Teste da proteção contra SQL injection
-
-Com a aplicação rodando localmente, execute:
-
-```bash
-npm run dev
-npm run test-sql-injection-protection
-```
-
-O script envia um payload propositalmente suspeito para `POST /api/feedback` e valida duas coisas:
-
-- a API responde `400` bloqueando a entrada
-- se `scripts/migration-security-input-events.sql` já tiver sido aplicado, o evento aparece persistido para auditoria
-
-Se quiser apontar para um dentista específico durante o teste:
-
-```bash
-npm run test-sql-injection-protection -- --dentist "Dr Guto"
-```
-
-Você também pode verificar visualmente os bloqueios recentes no dashboard em `/autumn/audit`.
-
-### 5. Criar admin inicial
-
-```bash
-node scripts/create-admin.js
-```
-
-### 6. Executar localmente
-
-```bash
-npm run dev
-```
-
-## Gestão de admins
-
-### Criar ou atualizar um admin por script
-
-```bash
-node scripts/create-admin.js
-```
-
-Se o email já existir no Supabase Auth, o script reaproveita a conta e atualiza a senha com a senha digitada.
-
-### Resetar um email de teste
-
-```bash
-npm run reset-admin-email -- email@dominio.com
-```
-
-Esse comando remove o usuário do Supabase Auth e o vínculo na tabela `admins`.
-
-### Gerenciar pelo dashboard
-
-O painel `Contas Administrativas` permite:
-
-- cadastrar admins
-- gerar link de definição de senha
-- ativar ou desativar contas
-- visualizar registros legados ou completos
-
-## Login administrativo
-
-Fluxo atual:
-
-1. admin entra com email e senha
-2. sistema valida Supabase Auth
-3. sistema confirma autorização em `admins`
-4. se não houver TOTP, abre enrollment
-5. se houver TOTP, exige verificação
-
-## Recovery de senha
-
-1. solicitar recovery na tela `/autumn/login` ou gerar link internamente
-2. usuário recebe o link somente por email
-3. abrir `/autumn/login?mode=recovery`
-4. sistema troca o `code` do link por sessão válida
-5. nova senha é salva com `updateUser`
-
-## APIs principais
-
-### Públicas
-
+- `/`
+- `/obrigado`
 - `POST /api/feedback`
 - `POST /api/track-page-view`
 
-### Administrativas
+### Rotas administrativas ativas
 
+- `/autumn/login`
+- `/autumn/audit`
+- `GET /api/auth/check`
+- `POST /api/auth/logout`
 - `GET /api/admin/stats`
 - `GET /api/admin/evolution`
 - `GET /api/admin/feedbacks`
 - `GET /api/admin/page-views`
 - `GET /api/admin/dentist-performance`
-- `GET /api/admin/admins`
-- `POST /api/admin/admins`
-- `PATCH /api/admin/admins`
-- `GET /api/auth/check`
-- `POST /api/auth/logout`
+- `GET /api/admin/security-input-events`
+- `GET|POST|PATCH /api/admin/admins`
 
-## Performance e proteção
+### Pastas principais
 
-- rate limit distribuído opcional via `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`
-- fallback automático para memória local quando o Redis externo não estiver configurado
-- cache curto de analytics no servidor para reduzir carga repetida no dashboard
-- RPCs SQL opcionais para stats, evolução, dentistas e page views com fallback para o modo compatível
-- alertas por email para brute force e abuso no recovery via `SECURITY_ALERT_EMAILS`
-- bloqueio e auditoria de payloads suspeitos em inputs públicos e administrativos
+- `app/`: páginas, layouts e rotas API do App Router
+- `components/`: UI pública, dashboard e painéis administrativos
+- `lib/`: auth, segurança, email, temas, sentimento e acesso ao Supabase
+- `scripts/`: migrations SQL, testes operacionais e utilitários administrativos
 
-Se voce quiser criar um Gmail so para isso, essa e a opcao mais direta para a fase atual do projeto: centraliza envio e recebimento numa caixa operacional simples e facilita auditoria.
+## Configuração local
 
-## Build
+### Pré-requisitos
+
+- Node.js 20+
+- projeto Supabase configurado
+- acesso ao SQL Editor do Supabase
+- conta SMTP válida para recovery e alertas
+
+### Instalação
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+### Variáveis de ambiente
+
+Preencha `.env.local` com os valores do ambiente:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
+ADMIN_SECRET=segredo-forte
+NEXT_PUBLIC_API_URL=http://localhost:3000
+PRIMARY_ADMIN_EMAIL=
+NODE_ENV=development
+ALLOW_DEV_2FA_FALLBACK=false
+NEXT_PUBLIC_THEME=zucato
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+RECOVERY_SMTP_HOST=smtp.gmail.com
+RECOVERY_SMTP_PORT=587
+RECOVERY_SMTP_USER=zucatorecovery@gmail.com
+RECOVERY_SMTP_PASS=senha-de-app-ou-deixe-vazio-se-usar-oauth
+RECOVERY_SMTP_FROM="Clinica Zucato <zucatorecovery@gmail.com>"
+RECOVERY_SMTP_OAUTH_CLIENT_ID=
+RECOVERY_SMTP_OAUTH_CLIENT_SECRET=
+RECOVERY_SMTP_OAUTH_REFRESH_TOKEN=
+RECOVERY_SMTP_OAUTH_ACCESS_TOKEN=
+
+SECURITY_ALERT_SMTP_HOST=
+SECURITY_ALERT_SMTP_PORT=587
+SECURITY_ALERT_SMTP_USER=
+SECURITY_ALERT_SMTP_PASS=
+SECURITY_ALERT_SMTP_FROM=
+SECURITY_ALERT_SMTP_OAUTH_CLIENT_ID=
+SECURITY_ALERT_SMTP_OAUTH_CLIENT_SECRET=
+SECURITY_ALERT_SMTP_OAUTH_REFRESH_TOKEN=
+SECURITY_ALERT_SMTP_OAUTH_ACCESS_TOKEN=
+SECURITY_ALERT_EMAILS=zucatorecovery@gmail.com
+```
+
+Observações importantes:
+
+- `PRIMARY_ADMIN_EMAIL` é opcional e pode ser usado como fallback de governança inicial.
+- se `SECURITY_ALERT_SMTP_*` ficar vazio, o sistema reaproveita automaticamente o perfil `RECOVERY_SMTP_*`.
+- o código ainda aceita `SMTP_*` como fallback legado, mas o padrão recomendado agora é usar os blocos `RECOVERY_SMTP_*` e `SECURITY_ALERT_SMTP_*`.
+- para Gmail, a senha comum da conta não funciona no SMTP. Use senha de app ou OAuth2.
+- em desenvolvimento, `ALLOW_DEV_2FA_FALLBACK=true` só deve ser usado quando você conscientemente quiser pular a entrega real de email. Para validar SMTP de verdade, mantenha `false`.
+
+### Banco de dados
+
+No SQL Editor do Supabase, aplique:
+
+1. `database.sql`
+2. `scripts/migration-rating-scale.sql`
+3. `scripts/migration-page-views.sql`
+4. `scripts/migration-device-fingerprint.sql`
+5. `scripts/migration-dentist-feedback.sql`
+6. `scripts/migration-admin-management.sql`
+7. `scripts/migration-dashboard-analytics.sql`
+8. `scripts/migration-anonymous-feedback.sql`
+9. `scripts/migration-security-input-events.sql`
+10. `scripts/migration-mixed-sentiment.sql`
+
+Notas:
+
+- `migration-admin-management.sql` habilita a hierarquia `owner` e `admin`.
+- `migration-dashboard-analytics.sql` adiciona objetos auxiliares usados para analytics mais eficientes, com fallback compatível quando ainda não aplicados.
+- `migration-anonymous-feedback.sql` anonimiza o histórico e reforça a policy pública.
+- `migration-security-input-events.sql` habilita a trilha persistente de auditoria.
+- `migration-mixed-sentiment.sql` alinha o banco com a categoria `misto`.
+
+### Primeiro acesso administrativo
+
+Crie ou atualize o primeiro admin:
+
+```bash
+node scripts/create-admin.js
+```
+
+Se o email já existir no Supabase Auth, o script reaproveita a conta e atualiza a senha.
+
+Se precisar limpar completamente um usuário de testes:
+
+```bash
+npm run reset-admin-email -- email@dominio.com
+```
+
+### Execução local
+
+```bash
+npm run dev
+```
+
+Checklist mínimo após subir a aplicação:
+
+1. enviar um feedback em `/`
+2. validar login em `/autumn/login`
+3. concluir ou validar o TOTP
+4. testar `Esqueci minha senha`
+5. abrir `/autumn/audit`
+6. revisar métricas, feedbacks e painel de contas
+
+## Auth, recovery e segurança
+
+### Modelo de autenticação
+
+- autenticação: Supabase Auth SSR
+- autorização: tabela `admins`
+- MFA: TOTP
+- rotas mascaradas: `/autumn/login` e `/autumn/audit`
+- `/admin/*` não deve existir como rota pública funcional
+
+### Recovery de senha
+
+Fluxo atual:
+
+1. o admin solicita recovery na tela de login
+2. o sistema envia um link por email
+3. o link retorna para `/autumn/login?mode=recovery`
+4. o app troca `code` ou tokens do link por sessão válida
+5. a nova senha é salva com `updateUser`
+
+### Emails operacionais
+
+- `RECOVERY_SMTP_*`: envio de recovery e mensagens de auth
+- `SECURITY_ALERT_SMTP_*`: envio de alertas operacionais de segurança
+- `SECURITY_ALERT_EMAILS`: destinatários de alertas
+
+Se o provedor Microsoft 365 ou Outlook responder `535 5.7.139 Authentication unsuccessful, basic authentication is disabled`, use OAuth2 ou uma forma de credencial compatível com o tenant. Para Gmail, prefira senha de app ou OAuth2.
+
+### Proteções ativas
+
+- rate limit com Upstash opcional e fallback em memória
+- centralização de validação e detecção de payload suspeito
+- bloqueio com `400` para entradas suspeitas
+- auditoria persistente dos bloqueios no dashboard
+- alertas por email para falhas repetidas de login, MFA e recovery
+- cache curto de analytics no servidor
+
+### Feedback público
+
+- o fluxo não coleta mais identificação do paciente
+- qualquer `patient_name` enviado pela UI pública é ignorado
+- o banco deve permanecer alinhado com `is_anonymous = true` e `patient_name IS NULL`
+
+## Testes e scripts úteis
+
+### Scripts de operação
+
+```bash
+node scripts/check-config.js
+node scripts/create-admin.js
+npm run reset-admin-email -- email@dominio.com
+```
+
+### Scripts de validação
 
 ```bash
 npm run build
-```
-
-## Documentação relacionada
-
-- `SETUP.md`
-- `DEPLOYMENT.md`
-- `DEPLOY_TUTORIAL.md`
-- `SUPABASE_AUTH_SETUP.md`
-- `SECURITY_SETUP.md`
-- `SHA256_MIGRATION.md`
-- `CHANGELOG.md`
-
-## Validação do email de recovery
-
-Para verificar a conexão SMTP e opcionalmente disparar um email de teste:
-
-```bash
+node scripts/test-supabase.js
+node scripts/test-api.js
 npm run test-recovery-email -- --verify-only
 npm run test-recovery-email -- --send admin@dominio.com
 npm run test-recovery-email -- --profile security-alert --verify-only
 npm run test-recovery-email -- --profile security-alert --send alertas@dominio.com
+npm run test-bruteforce-alert -- --real-login --email admin@dominio.com --password senha-errada --attempts 5
+npm run test-sql-injection-protection
+npm run test-sql-injection-protection -- --dentist "Dr Guto"
 ```
 
-Os comandos sem `--profile` validam o perfil de recovery. Com `--profile security-alert`, o script valida o perfil de alertas.
+O teste de brute force em modo `--real-login` usa tentativas reais contra o Supabase Auth antes de reportar o evento para o agregador de alertas.
 
-Se o provedor for Microsoft 365/Outlook e aparecer o erro `535 5.7.139 Authentication unsuccessful, basic authentication is disabled`, use app password ou configure as variáveis `*_OAUTH_CLIENT_ID`, `*_OAUTH_CLIENT_SECRET` e `*_OAUTH_REFRESH_TOKEN` no bloco correspondente.
+## Deploy
 
-## Versionamento semântico
+### Pré-deploy
 
-O projeto passa a seguir SemVer:
+1. aplicar schema e migrations no Supabase
+2. configurar as variáveis do ambiente de produção
+3. validar `npm run build`
+4. validar login, TOTP, recovery e dashboard
+5. validar testes de SMTP e de proteção de input
+
+### Produção
+
+O projeto está preparado para deploy em plataformas como Vercel. Depois do deploy:
+
+1. ajuste `NEXT_PUBLIC_API_URL` para a URL final
+2. atualize `Site URL` e `Redirect URLs` no Supabase Auth
+3. confira credenciais SMTP e destinatários de alerta
+4. confirme que as rotas administrativas públicas continuam apenas em `/autumn/*`
+
+## Tema e branding
+
+O tema ativo é definido por `NEXT_PUBLIC_THEME`. A infraestrutura de personalização continua disponível em `lib/themes.ts`, `lib/useTheme.ts` e `components/ThemeProvider.tsx`.
+
+## Documentos mantidos
+
+- `README.md`: guia operacional consolidado
+- `CHANGELOG.md`: histórico de versões e mudanças
+- `LEGACY_AUTH_NOTES.md`: referência histórica do fluxo de auth antigo
 
 - `MAJOR`: quebra compatibilidade
 - `MINOR`: adiciona funcionalidades compatíveis
