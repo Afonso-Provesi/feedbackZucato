@@ -59,6 +59,8 @@ Execute no SQL Editor:
 - `scripts/migration-dentist-feedback.sql`
 - `scripts/migration-admin-management.sql`
 - `scripts/migration-dashboard-analytics.sql`
+- `scripts/migration-anonymous-feedback.sql`
+- `scripts/migration-security-input-events.sql`
 
 ## 4. Instalar dependências
 
@@ -87,6 +89,8 @@ npm run dev
 - configurar ou validar TOTP
 - testar `Esqueci minha senha` e confirmar recebimento do email de recovery
 - abrir `/autumn/audit`
+- executar `npm run test-sql-injection-protection -- --dentist "Dr Guto"` com a aplicação local rodando
+- confirmar se o dashboard mostra eventos de bloqueio após aplicar `scripts/migration-security-input-events.sql`
 - validar SMTP de recovery com `npm run test-recovery-email -- --verify-only`
 - validar SMTP de alertas com `npm run test-recovery-email -- --profile security-alert --verify-only`
 
@@ -103,6 +107,8 @@ npm run reset-admin-email -- email@dominio.com
 - sem a migration de admin management, o sistema fica em modo compatível
 - com a migration aplicada, a governança owner/admin fica coerente com o dashboard
 - sem as variáveis do Upstash, o rate limit continua funcionando em memória local
+- sem a migration de security input events, o bloqueio continua funcionando, mas sem histórico persistido para auditoria
+- sem a migration de anonymous feedback, o código ainda força anonimato na API, mas a base antiga pode manter dados legados até a normalização
 - em tenants Microsoft 365 com basic auth desabilitado, use app password ou OAuth2 para o SMTP
 - se voce quiser separar as caixas, use `RECOVERY_SMTP_*` para auth/recovery e `SECURITY_ALERT_SMTP_*` para alertas
 - `SECURITY_ALERT_EMAILS` define quem recebe alertas de brute force e abuso na recuperação; se omitido, o sistema usa o remetente do bloco de alertas ou o fallback `SMTP_*`

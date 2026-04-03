@@ -3,7 +3,7 @@ import { validateAdminSession } from '@/lib/auth'
 import { getFeedbacks } from '@/lib/supabase'
 import { isValidDashboardDateInput, sanitizeTextField } from '@/lib/inputProtection'
 
-const ALLOWED_SENTIMENTS = new Set(['todos', 'positivo', 'negativo', 'neutro'])
+const ALLOWED_SENTIMENTS = new Set(['todos', 'positivo', 'negativo', 'neutro', 'misto'])
 
 export async function GET(req: NextRequest) {
   try {

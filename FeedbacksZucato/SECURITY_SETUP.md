@@ -66,7 +66,44 @@ npm run dev
 - configure `SECURITY_ALERT_EMAILS` com o email que deve receber os alertas.
 - para Gmail, use senha de app de 16 caracteres. Senha normal da conta nao autentica no SMTP.
 
+## 7. Auditoria de entradas suspeitas
+
+Para persistir tentativas bloqueadas por payload suspeito, aplique:
+
+```sql
+-- SQL Editor do Supabase
+-- execute o arquivo scripts/migration-security-input-events.sql
+```
+
+Depois valide com a aplicação local rodando:
+
+```bash
+npm run test-sql-injection-protection -- --dentist "Dr Guto"
+```
+
+Resultado esperado:
+
+- a API responde com bloqueio do payload suspeito
+- o dashboard em `/autumn/audit` passa a listar o evento, se a migration já estiver aplicada
+
+## 8. Anonimato obrigatório dos feedbacks
+
+Para normalizar histórico e reforçar a policy no banco, aplique:
+
+```sql
+-- SQL Editor do Supabase
+-- execute o arquivo scripts/migration-anonymous-feedback.sql
+```
+
+Com isso:
+
+- novos feedbacks continuam sendo gravados anonimamente
+- registros antigos com identificação podem ser anonimizados
+- inserts públicos ficam restritos a `is_anonymous = true` e `patient_name IS NULL`
+
 Pronto! Agora seu sistema tem:
 - ✅ Proteção contra spam (máx. 1 feedback/dispositivo/dia)
 - ✅ Emails de admins seguros (criptografados)
 - ✅ Acesso seguro ao painel admin
+- ✅ Respostas públicas anônimas por padrão
+- ✅ Trilhas de auditoria para payloads suspeitos

@@ -9,6 +9,8 @@ import AdminAccountsPanel from '@/components/AdminAccountsPanel'
 import SecurityInputEventsPanel from '@/components/SecurityInputEventsPanel'
 import toast, { Toaster } from 'react-hot-toast'
 
+type FeedbackSentiment = 'positivo' | 'negativo' | 'neutro' | 'misto'
+
 interface Stats {
 	total: number
 	avgRating: number
@@ -18,6 +20,7 @@ interface Stats {
 		positivo: number
 		negativo: number
 		neutro: number
+		misto: number
 	}
 	clinicRatingDistribution: Array<{
 		rating: number
@@ -34,6 +37,7 @@ interface DentistPerformance {
 		positivo: number
 		negativo: number
 		neutro: number
+		misto: number
 	}
 }
 
@@ -44,8 +48,8 @@ interface Feedback {
 	dentist_name: string | null
 	dentist_rating: number | null
 	dentist_comment: string | null
-	dentist_sentiment: 'positivo' | 'negativo' | 'neutro' | null
-	sentiment: 'positivo' | 'negativo' | 'neutro' | null
+	dentist_sentiment: FeedbackSentiment | null
+	sentiment: FeedbackSentiment | null
 	created_at: string
 	is_anonymous: boolean
 }
