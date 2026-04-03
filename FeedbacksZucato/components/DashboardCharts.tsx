@@ -15,6 +15,7 @@ interface DentistPerformance {
     positivo: number
     negativo: number
     neutro: number
+    misto: number
   }
 }
 
@@ -23,6 +24,7 @@ interface DashboardChartsProps {
     positivo: number
     negativo: number
     neutro: number
+    misto: number
   }
   clinicRatingDistribution: Array<{
     rating: number
@@ -54,12 +56,12 @@ export default function DashboardCharts({ sentimentBreakdown, clinicRatingDistri
   }
 
   const sentimentData = {
-    labels: ['Positivo', 'Negativo', 'Neutro'],
+    labels: ['Positivo', 'Misto', 'Mediano', 'Negativo'],
     datasets: [
       {
-        data: [sentimentBreakdown.positivo, sentimentBreakdown.negativo, sentimentBreakdown.neutro],
-        backgroundColor: ['#22c55e', '#ef4444', '#94a3b8'],
-        borderColor: ['#16a34a', '#dc2626', '#64748b'],
+        data: [sentimentBreakdown.positivo, sentimentBreakdown.misto, sentimentBreakdown.neutro, sentimentBreakdown.negativo],
+        backgroundColor: ['#22c55e', '#f59e0b', '#94a3b8', '#ef4444'],
+        borderColor: ['#16a34a', '#d97706', '#64748b', '#dc2626'],
         borderWidth: 2,
       },
     ],
@@ -113,16 +115,17 @@ export default function DashboardCharts({ sentimentBreakdown, clinicRatingDistri
 
   const dentistSentimentData = selectedDentistData
     ? {
-        labels: ['Positivo', 'Neutro', 'Negativo'],
+        labels: ['Positivo', 'Misto', 'Mediano', 'Negativo'],
         datasets: [
           {
             label: 'Avaliações do dentista',
             data: [
               selectedDentistData.sentimentBreakdown.positivo,
+              selectedDentistData.sentimentBreakdown.misto,
               selectedDentistData.sentimentBreakdown.neutro,
               selectedDentistData.sentimentBreakdown.negativo,
             ],
-            backgroundColor: ['#22c55e', '#94a3b8', '#ef4444'],
+            backgroundColor: ['#22c55e', '#f59e0b', '#94a3b8', '#ef4444'],
             borderRadius: 10,
           },
         ],

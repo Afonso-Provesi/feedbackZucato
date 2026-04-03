@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import StarRating from './StarRating'
 import toast, { Toaster } from 'react-hot-toast'
 import { DENTISTS } from '@/lib/dentists'
-import { validateTextField, sanitizeTextField } from '@/lib/inputProtection'
+import { validateTextField, normalizeTextFieldForEditing } from '@/lib/inputProtection'
 
 export default function FeedbackForm() {
   const router = useRouter()
@@ -137,7 +137,7 @@ export default function FeedbackForm() {
             value={comment}
             onChange={(e) =>
               setComment(
-                sanitizeTextField(e.target.value, {
+                normalizeTextFieldForEditing(e.target.value, {
                   maxLength: 500,
                   preserveNewlines: true,
                 })
@@ -191,7 +191,7 @@ export default function FeedbackForm() {
             value={dentistComment}
             onChange={(e) =>
               setDentistComment(
-                sanitizeTextField(e.target.value, {
+                normalizeTextFieldForEditing(e.target.value, {
                   maxLength: 500,
                   preserveNewlines: true,
                 })

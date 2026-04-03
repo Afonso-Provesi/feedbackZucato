@@ -13,6 +13,7 @@ AS $$
       COUNT(*)::int AS total,
       COALESCE(ROUND(AVG(rating)::numeric, 2), 0)::numeric AS avg_rating,
       COUNT(*) FILTER (WHERE sentiment = 'positivo')::int AS positivo,
+      COUNT(*) FILTER (WHERE sentiment = 'misto')::int AS misto,
       COUNT(*) FILTER (WHERE sentiment = 'negativo')::int AS negativo,
       COUNT(*) FILTER (WHERE sentiment = 'neutro')::int AS neutro
     FROM base
@@ -41,6 +42,7 @@ AS $$
     'negativoPercent', CASE WHEN totals.total > 0 THEN ROUND((totals.negativo::numeric / totals.total::numeric) * 100, 1)::text ELSE '0' END,
     'sentimentBreakdown', jsonb_build_object(
       'positivo', totals.positivo,
+      'misto', totals.misto,
       'negativo', totals.negativo,
       'neutro', totals.neutro
     ),
@@ -56,6 +58,7 @@ RETURNS TABLE (
   avg_rating numeric,
   aproveitamento numeric,
   positivo int,
+  misto int,
   negativo int,
   neutro int
 )
@@ -74,6 +77,7 @@ AS $$
       COUNT(*)::int AS total,
       COALESCE(ROUND(AVG(dentist_rating)::numeric, 2), 0)::numeric AS avg_rating,
       COUNT(*) FILTER (WHERE dentist_sentiment = 'positivo')::int AS positivo,
+      COUNT(*) FILTER (WHERE dentist_sentiment = 'misto')::int AS misto,
       COUNT(*) FILTER (WHERE dentist_sentiment = 'negativo')::int AS negativo,
       COUNT(*) FILTER (WHERE dentist_sentiment = 'neutro')::int AS neutro
     FROM base
@@ -84,10 +88,11 @@ AS $$
     total,
     avg_rating,
     CASE
-      WHEN total > 0 THEN ROUND((((positivo + (neutro * 0.5)) / total::numeric) * 100), 1)
+      WHEN total > 0 THEN ROUND((((positivo + (misto * 0.25) + (neutro * 0.5)) / total::numeric) * 100), 1)
       ELSE 0
     END AS aproveitamento,
     positivo,
+    misto,
     negativo,
     neutro
   FROM grouped

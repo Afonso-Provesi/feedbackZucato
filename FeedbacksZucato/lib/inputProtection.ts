@@ -33,6 +33,33 @@ function collapseWhitespace(value: string, preserveNewlines: boolean): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
+function normalizeTextCharacters(value: string): string {
+  return value
+    .normalize('NFKC')
+    .replace(CONTROL_CHARACTERS_REGEX, '')
+    .replace(ZERO_WIDTH_REGEX, '')
+}
+
+export function normalizeTextFieldForEditing(value: unknown, options: Pick<TextFieldValidationOptions, 'maxLength' | 'preserveNewlines'> = {}): string {
+  const {
+    maxLength = 500,
+    preserveNewlines = false,
+  } = options
+
+  const rawValue = typeof value === 'string' ? value : ''
+  const normalizedValue = normalizeTextCharacters(rawValue)
+
+  if (preserveNewlines) {
+    return normalizedValue
+      .replace(/\r\n?/g, '\n')
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .slice(0, maxLength)
+  }
+
+  return normalizedValue.replace(/\s+/g, ' ').slice(0, maxLength)
+}
+
 export function sanitizeTextField(value: unknown, options: TextFieldValidationOptions = {}): string {
   const {
     maxLength = 500,
@@ -41,10 +68,7 @@ export function sanitizeTextField(value: unknown, options: TextFieldValidationOp
 
   const rawValue = typeof value === 'string' ? value : ''
 
-  const normalizedValue = rawValue
-    .normalize('NFKC')
-    .replace(CONTROL_CHARACTERS_REGEX, '')
-    .replace(ZERO_WIDTH_REGEX, '')
+  const normalizedValue = normalizeTextCharacters(rawValue)
 
   return collapseWhitespace(normalizedValue, preserveNewlines).slice(0, maxLength)
 }

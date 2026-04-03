@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { SentimentType } from '@/lib/sentiment'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,8 +16,8 @@ export interface Feedback {
   dentist_name?: string | null
   dentist_rating?: number | null
   dentist_comment?: string | null
-  dentist_sentiment?: 'positivo' | 'neutro' | 'negativo' | null
-  sentiment: 'positivo' | 'neutro' | 'negativo' | null
+  dentist_sentiment?: SentimentType | null
+  sentiment: SentimentType | null
   created_at?: string
   is_anonymous: boolean
   patient_name: string | null
@@ -24,16 +25,19 @@ export interface Feedback {
   device_fingerprint?: string
 }
 
+interface SentimentBreakdown {
+  positivo: number
+  negativo: number
+  neutro: number
+  misto: number
+}
+
 interface DashboardStats {
   total: number
   avgRating: number
   positivoPercent: string
   negativoPercent: string
-  sentimentBreakdown: {
-    positivo: number
-    negativo: number
-    neutro: number
-  }
+  sentimentBreakdown: SentimentBreakdown
   clinicRatingDistribution: Array<{
     rating: number
     total: number
@@ -45,11 +49,7 @@ interface DentistPerformance {
   total: number
   avgRating: number
   aproveitamento: string
-  sentimentBreakdown: {
-    positivo: number
-    negativo: number
-    neutro: number
-  }
+  sentimentBreakdown: SentimentBreakdown
 }
 
 interface PageViewStats {
@@ -135,6 +135,7 @@ function normalizeDashboardStats(data: any): DashboardStats {
   const positivo = normalizeNumber(data?.sentimentBreakdown?.positivo)
   const negativo = normalizeNumber(data?.sentimentBreakdown?.negativo)
   const neutro = normalizeNumber(data?.sentimentBreakdown?.neutro)
+  const misto = normalizeNumber(data?.sentimentBreakdown?.misto)
 
   return {
     total,
@@ -145,6 +146,7 @@ function normalizeDashboardStats(data: any): DashboardStats {
       positivo,
       negativo,
       neutro,
+      misto,
     },
     clinicRatingDistribution: Array.from({ length: 10 }, (_, index) => {
       const rating = index + 1
@@ -187,6 +189,7 @@ async function getFeedbackStatsFallback(): Promise<DashboardStats> {
   let positivos = 0
   let negativos = 0
   let neutros = 0
+  let mistos = 0
 
   for (const item of data || []) {
     const rating = normalizeNumber(item.rating)
@@ -200,6 +203,7 @@ async function getFeedbackStatsFallback(): Promise<DashboardStats> {
     if (item.sentiment === 'positivo') positivos += 1
     if (item.sentiment === 'negativo') negativos += 1
     if (item.sentiment === 'neutro') neutros += 1
+    if (item.sentiment === 'misto') mistos += 1
   }
 
   return {
@@ -211,6 +215,7 @@ async function getFeedbackStatsFallback(): Promise<DashboardStats> {
       positivo: positivos,
       negativo: negativos,
       neutro: neutros,
+      misto: mistos,
     },
     clinicRatingDistribution: distribution,
   }
@@ -226,6 +231,7 @@ function normalizeDentistPerformanceRows(data: any[]): DentistPerformance[] {
       positivo: normalizeNumber(item?.positivo ?? item?.sentimentBreakdown?.positivo),
       negativo: normalizeNumber(item?.negativo ?? item?.sentimentBreakdown?.negativo),
       neutro: normalizeNumber(item?.neutro ?? item?.sentimentBreakdown?.neutro),
+      misto: normalizeNumber(item?.misto ?? item?.sentimentBreakdown?.misto),
     },
   }))
 }
@@ -255,6 +261,7 @@ async function getDentistPerformanceFallback(): Promise<DentistPerformance[]> {
     positivo: number
     negativo: number
     neutro: number
+    misto: number
   }>()
 
   const overall = {
@@ -264,6 +271,7 @@ async function getDentistPerformanceFallback(): Promise<DentistPerformance[]> {
     positivo: 0,
     negativo: 0,
     neutro: 0,
+    misto: 0,
   }
 
   for (const item of data || []) {
@@ -279,6 +287,7 @@ async function getDentistPerformanceFallback(): Promise<DentistPerformance[]> {
         positivo: 0,
         negativo: 0,
         neutro: 0,
+        misto: 0,
       })
     }
 
@@ -309,6 +318,11 @@ async function getDentistPerformanceFallback(): Promise<DentistPerformance[]> {
       current.neutro += 1
       overall.neutro += 1
     }
+
+    if (item.dentist_sentiment === 'misto') {
+      current.misto += 1
+      overall.misto += 1
+    }
   }
 
   const formatPerformance = (dentistName: string, values: typeof overall): DentistPerformance => ({
@@ -316,12 +330,13 @@ async function getDentistPerformanceFallback(): Promise<DentistPerformance[]> {
     total: values.total,
     avgRating: values.ratingCount > 0 ? Number((values.ratingSum / values.ratingCount).toFixed(2)) : 0,
     aproveitamento: values.total > 0
-      ? (((values.positivo + values.neutro * 0.5) / values.total) * 100).toFixed(1)
+      ? (((values.positivo + values.neutro * 0.5 + values.misto * 0.25) / values.total) * 100).toFixed(1)
       : '0.0',
     sentimentBreakdown: {
       positivo: values.positivo,
       negativo: values.negativo,
       neutro: values.neutro,
+      misto: values.misto,
     },
   })
 

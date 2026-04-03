@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { getSentimentLabel, getSentimentColor } from '@/lib/sentiment'
 
+type FeedbackSentiment = 'positivo' | 'negativo' | 'neutro' | 'misto'
+
 interface Feedback {
   id: string
   rating: number
@@ -10,8 +12,8 @@ interface Feedback {
   dentist_name: string | null
   dentist_rating: number | null
   dentist_comment: string | null
-  dentist_sentiment: 'positivo' | 'negativo' | 'neutro' | null
-  sentiment: 'positivo' | 'negativo' | 'neutro' | null
+  dentist_sentiment: FeedbackSentiment | null
+  sentiment: FeedbackSentiment | null
   created_at: string
   is_anonymous: boolean
 }
@@ -35,7 +37,7 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
 
       {/* Filtros */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {['todos', 'positivo', 'negativo', 'neutro'].map((filter) => (
+        {['todos', 'positivo', 'misto', 'negativo', 'neutro'].map((filter) => (
           <button
             key={filter}
             onClick={() => handleFilter(filter)}
@@ -45,7 +47,7 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
                 : 'bg-[rgba(21,58,91,0.06)] text-[var(--text-soft)] hover:bg-[rgba(21,58,91,0.12)]'
             }`}
           >
-            {filter === 'neutro' ? 'Mediano' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+            {filter === 'neutro' ? 'Mediano' : filter === 'misto' ? 'Misto' : filter.charAt(0).toUpperCase() + filter.slice(1)}
           </button>
         ))}
       </div>

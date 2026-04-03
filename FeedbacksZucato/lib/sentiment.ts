@@ -1,4 +1,4 @@
-type SentimentType = 'positivo' | 'neutro' | 'negativo'
+type SentimentType = 'positivo' | 'neutro' | 'negativo' | 'misto'
 
 const positivoKeywords = [
   'ótimo', 'excelente', 'maravilhoso', 'perfeito', 'adorei', 'amei', 'muito bom',
@@ -23,6 +23,12 @@ const negativoKeywords = [
 const contrastKeywords = [
   'mas', 'porém', 'porem', 'entretanto', 'só que', 'so que', 'apesar', 'em compensação',
   'tirando', 'exceto', 'no entanto'
+]
+
+const mixedSignalKeywords = [
+  'pontos positivos', 'pontos negativos', 'ponto positivo', 'ponto negativo',
+  'por um lado', 'por outro lado', 'ao mesmo tempo', 'em partes',
+  'coisas boas e ruins', 'gostei de algumas coisas', 'nao gostei de algumas coisas'
 ]
 
 const mildComplaintKeywords = [
@@ -58,23 +64,28 @@ export function analyzeSentiment(text: string, rating?: number | null): Sentimen
   const normalizedText = text?.trim() || ''
   const lowerText = normalizedText.toLowerCase()
 
-  let positivoScore = 0
-  let negativoScore = 0
+  let positiveTextScore = 0
+  let negativeTextScore = 0
 
   positivoKeywords.forEach(keyword => {
     if (lowerText.includes(keyword)) {
-      positivoScore++
+      positiveTextScore++
     }
   })
 
   negativoKeywords.forEach(keyword => {
     if (lowerText.includes(keyword)) {
-      negativoScore++
+      negativeTextScore++
     }
   })
 
   const hasContrast = contrastKeywords.some(keyword => lowerText.includes(keyword))
+  const hasMixedSignal = mixedSignalKeywords.some(keyword => lowerText.includes(keyword))
   const hasMildComplaint = mildComplaintKeywords.some(keyword => lowerText.includes(keyword))
+  const hasMixedTextSignals = positiveTextScore > 0 && negativeTextScore > 0
+
+  let positivoScore = positiveTextScore
+  let negativoScore = negativeTextScore
 
   const ratingBias = getRatingBias(rating)
   positivoScore += ratingBias.positivo
@@ -84,13 +95,25 @@ export function analyzeSentiment(text: string, rating?: number | null): Sentimen
     return 'neutro'
   }
 
-  if (hasMildComplaint) {
+  if (hasMixedTextSignals && (hasContrast || hasMixedSignal || Math.abs(positiveTextScore - negativeTextScore) <= 1)) {
+    return 'misto'
+  }
+
+  if ((hasContrast || hasMixedSignal) && positiveTextScore > 0 && negativoScore > 0) {
+    return 'misto'
+  }
+
+  if (hasMildComplaint && !hasMixedTextSignals) {
     return 'neutro'
   }
 
   if (positivoScore > 0 && negativoScore > 0) {
     if (hasContrast) {
-      return 'neutro'
+      return 'misto'
+    }
+
+    if (Math.abs(positivoScore - negativoScore) <= 1) {
+      return 'misto'
     }
 
     if (Math.abs(positivoScore - negativoScore) <= 2) {
@@ -112,6 +135,7 @@ export function getSentimentLabel(sentiment: SentimentType): string {
     positivo: 'Positivo 😊',
     negativo: 'Negativo 😞',
     neutro: 'Mediano 😐',
+    misto: 'Misto / Atenção 👀',
   }
   return labels[sentiment]
 }
@@ -121,6 +145,7 @@ export function getSentimentColor(sentiment: SentimentType): string {
     positivo: '#22c55e',
     negativo: '#ef4444',
     neutro: '#94a3b8',
+    misto: '#f59e0b',
   }
   return colors[sentiment]
 }
