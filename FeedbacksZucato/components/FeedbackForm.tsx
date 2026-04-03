@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import StarRating from './StarRating'
 import toast, { Toaster } from 'react-hot-toast'
 import { DENTISTS } from '@/lib/dentists'
+import { validateTextField, sanitizeTextField } from '@/lib/inputProtection'
 
 export default function FeedbackForm() {
   const router = useRouter()
@@ -13,7 +14,6 @@ export default function FeedbackForm() {
   const [dentistName, setDentistName] = useState('')
   const [dentistRating, setDentistRating] = useState(0)
   const [dentistComment, setDentistComment] = useState('')
-  const [patientName, setPatientName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,8 +44,23 @@ export default function FeedbackForm() {
       return
     }
 
-    if (!patientName.trim()) {
-      toast.error('Por favor, informe seu nome')
+    const clinicCommentValidation = validateTextField(comment, {
+      fieldLabel: 'comentario sobre a clinica',
+      maxLength: 500,
+      preserveNewlines: true,
+    })
+    if (!clinicCommentValidation.ok) {
+      toast.error(clinicCommentValidation.error || 'Conteudo invalido no comentario da clinica')
+      return
+    }
+
+    const dentistCommentValidation = validateTextField(dentistComment, {
+      fieldLabel: 'comentario sobre o dentista',
+      maxLength: 500,
+      preserveNewlines: true,
+    })
+    if (!dentistCommentValidation.ok) {
+      toast.error(dentistCommentValidation.error || 'Conteudo invalido no comentario sobre o dentista')
       return
     }
 
@@ -59,12 +74,11 @@ export default function FeedbackForm() {
         },
         body: JSON.stringify({
           rating,
-          comment: comment || null,
+          comment: clinicCommentValidation.sanitizedValue || null,
           dentistName,
           dentistRating,
-          dentistComment: dentistComment || null,
-          isAnonymous: false,
-          patientName: patientName.trim(),
+          dentistComment: dentistCommentValidation.sanitizedValue || null,
+          isAnonymous: true,
           source: 'whatsapp',
         }),
       })
@@ -121,7 +135,14 @@ export default function FeedbackForm() {
           </label>
           <textarea
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            onChange={(e) =>
+              setComment(
+                sanitizeTextField(e.target.value, {
+                  maxLength: 500,
+                  preserveNewlines: true,
+                })
+              )
+            }
             placeholder="Conte como foi seu atendimento, ambiente, recepção ou tratamento."
             className="mt-2 w-full resize-none rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
             rows={4}
@@ -168,35 +189,20 @@ export default function FeedbackForm() {
           </label>
           <textarea
             value={dentistComment}
-            onChange={(e) => setDentistComment(e.target.value)}
+            onChange={(e) =>
+              setDentistComment(
+                sanitizeTextField(e.target.value, {
+                  maxLength: 500,
+                  preserveNewlines: true,
+                })
+              )
+            }
             placeholder="Se desejar, conte como foi a atenção, clareza e cuidado do dentista."
             className="mt-2 w-full resize-none rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
             rows={4}
             maxLength={500}
           />
           <p className="mt-2 text-right text-xs text-[var(--text-soft)]">{dentistComment.length}/500</p>
-        </div>
-
-        <div className="mt-5 rounded-[28px] border border-[rgba(21,58,91,0.08)] bg-[rgba(255,255,255,0.78)] p-5 md:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-secondary)]">
-            Etapa 3
-          </p>
-          <p className="mt-2 text-sm leading-7 text-[var(--text-soft)]">
-            Informe sua identificação para registrar a avaliação com segurança.
-          </p>
-
-          <label className="mt-5 block text-sm font-semibold text-[var(--color-primary)]">
-            Seu nome
-          </label>
-          <input
-            type="text"
-            value={patientName}
-            onChange={(e) => setPatientName(e.target.value)}
-            placeholder="Digite seu nome"
-            className="mt-2 w-full rounded-[22px] border border-[rgba(21,58,91,0.12)] bg-[rgba(255,250,243,0.78)] p-4 text-[var(--color-text)] outline-none transition-all placeholder:text-[rgba(32,48,64,0.44)] focus:border-[rgba(181,138,87,0.6)] focus:bg-white focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
-            maxLength={100}
-            required
-          />
         </div>
 
         <button
@@ -208,7 +214,7 @@ export default function FeedbackForm() {
         </button>
 
         <p className="mt-4 text-center text-xs leading-6 text-[var(--text-soft)]">
-          Seus dados são usados apenas para registrar sua experiência com segurança e melhorar nosso atendimento.
+          Sua avaliação é registrada de forma anônima para incentivar respostas sinceras, tanto positivas quanto negativas.
         </p>
       </form>
     </>

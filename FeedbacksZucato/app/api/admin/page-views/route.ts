@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminSession } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getPageViewStats } from '@/lib/supabase'
+import { isValidDashboardDateInput, isValidTrackedPageInput, sanitizeTextField } from '@/lib/inputProtection'
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,41 +10,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const dateFrom = req.nextUrl.searchParams.get('dateFrom')
-    const dateTo = req.nextUrl.searchParams.get('dateTo')
-    const page = req.nextUrl.searchParams.get('page') || 'index'
+    const dateFrom = sanitizeTextField(req.nextUrl.searchParams.get('dateFrom'), { maxLength: 10 })
+    const dateTo = sanitizeTextField(req.nextUrl.searchParams.get('dateTo'), { maxLength: 10 })
+    const page = sanitizeTextField(req.nextUrl.searchParams.get('page') || 'index', { maxLength: 120 })
 
-    let query = supabaseAdmin
-      .from('page_views')
-      .select('id, page, created_at')
-      .eq('page', page)
-
-    if (dateFrom) {
-      query = query.gte('created_at', dateFrom)
+    if (dateFrom && !isValidDashboardDateInput(dateFrom)) {
+      return NextResponse.json({ error: 'Data inicial inválida' }, { status: 400 })
     }
 
-    if (dateTo) {
-      query = query.lte('created_at', dateTo)
+    if (dateTo && !isValidDashboardDateInput(dateTo)) {
+      return NextResponse.json({ error: 'Data final inválida' }, { status: 400 })
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false })
+    if (!isValidTrackedPageInput(page)) {
+      return NextResponse.json({ error: 'Página inválida' }, { status: 400 })
+    }
 
-    if (error) throw error
-
-    const total = data?.length || 0
-    const byDate: { [key: string]: number } = {}
-
-    data?.forEach((view) => {
-      const date = new Date(view.created_at).toLocaleDateString('pt-BR')
-      byDate[date] = (byDate[date] || 0) + 1
-    })
+    const stats = await getPageViewStats(page, dateFrom || undefined, dateTo || undefined)
 
     return NextResponse.json(
-      {
-        total,
-        byDate,
-        page,
-      },
+      stats,
       { status: 200 }
     )
   } catch (error) {

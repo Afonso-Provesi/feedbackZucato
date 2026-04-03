@@ -60,6 +60,12 @@ ENCRYPTION_KEY=3a4c7f9b2e1d8a5f6c9e2b4d7f1a3c5e8b0d2f4a6c8e1b3d5f7a9c0e2b4d6f
 npm run dev
 ```
 
+## 6. Gmail para alertas e recovery
+
+- se voce usar um unico Gmail operacional, preencha `RECOVERY_SMTP_*` e deixe `SECURITY_ALERT_SMTP_*` vazio; o sistema reaproveita esse mesmo remetente para os alertas.
+- configure `SECURITY_ALERT_EMAILS` com o email que deve receber os alertas.
+- para Gmail, use senha de app de 16 caracteres. Senha normal da conta nao autentica no SMTP.
+
 Pronto! Agora seu sistema tem:
 - ✅ Proteção contra spam (máx. 1 feedback/dispositivo/dia)
 - ✅ Emails de admins seguros (criptografados)

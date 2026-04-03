@@ -141,10 +141,10 @@ ruim, péssimo, horrível, terrível, detestei, odiei, muito ruim, decepcionado,
 
 ### FUNCIONALIDADE 5 - Dashboard Administrativo
 
-**URL:** `/admin/dashboard`
+**URL:** `/autumn/audit`
 
 **Autenticação:**
-- Login acessível em `/admin/login`
+- Login acessível em `/autumn/login`
 - Email e senha obrigatórios
 - Sessão com JWT
 - Cookie httpOnly, secure, sameSite=strict

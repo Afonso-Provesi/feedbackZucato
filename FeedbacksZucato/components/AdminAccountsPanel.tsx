@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { normalizeEmailInput } from '@/lib/inputProtection'
 
 interface ManagedAdmin {
   id: string
@@ -65,12 +66,14 @@ export default function AdminAccountsPanel() {
     setIsSubmitting(true)
 
     try {
+      const normalizedEmail = normalizeEmailInput(email)
+
       const response = await fetch('/api/admin/admins', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       })
 
       const data = await response.json()
@@ -187,7 +190,7 @@ export default function AdminAccountsPanel() {
         <input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(normalizeEmailInput(e.target.value))}
           placeholder="novo-admin@dominio.com"
           className="px-4 py-3 border border-[rgba(21,58,91,0.12)] rounded-2xl bg-[rgba(255,250,243,0.8)] focus:outline-none focus:ring-4 focus:ring-[rgba(181,138,87,0.12)]"
           required

@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveFeedback, supabaseAdmin } from '@/lib/supabase'
 import { analyzeSentiment } from '@/lib/sentiment'
-import { sanitizeInput, validateRating, checkRateLimit } from '@/lib/security'
+import { sanitizeInput, validateRating, checkRateLimit, getClientIpFromHeaders } from '@/lib/security'
 import { generateDeviceFingerprint } from '@/lib/crypto'
 import { isValidDentistName } from '@/lib/dentists'
+import { validateTextField } from '@/lib/inputProtection'
+import { recordSecurityInputEvent } from '@/lib/securityInputEvents'
+
+async function logSuspiciousValidationIfNeeded(
+  req: NextRequest,
+  fieldName: string,
+  rawValue: unknown,
+  validation: ReturnType<typeof validateTextField>
+) {
+  if (validation.ok || validation.failureKind !== 'suspicious') {
+    return
+  }
+
+  await recordSecurityInputEvent(req.headers, {
+    sourceScope: 'public-feedback',
+    requestPath: req.nextUrl.pathname,
+    fieldName,
+    payload: rawValue,
+    reason: validation.error,
+  })
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,9 +52,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    const ip = getClientIpFromHeaders(req.headers)
 
-    if (!checkRateLimit(ip, 10, 60000)) {
+    const rateLimit = await checkRateLimit(ip, 10, 60000)
+
+    if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Muitas requisições. Tente novamente mais tarde.' },
         { status: 429 }
@@ -41,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { rating, comment, isAnonymous, patientName, source, dentistName, dentistRating, dentistComment } = body
+    const { rating, comment, source, dentistName, dentistRating, dentistComment } = body
 
     // Validação
     if (!validateRating(rating)) {
@@ -71,14 +94,18 @@ export async function POST(req: NextRequest) {
 
     // Verificar se já existe feedback do mesmo dispositivo no mesmo dia
     const today = new Date().toISOString().split('T')[0]
-    const { data: duplicates } = await supabaseAdmin
+    const { count: duplicateCount, error: duplicateError } = await supabaseAdmin
       .from('feedbacks')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('device_fingerprint', deviceFingerprint)
       .gte('created_at', `${today}T00:00:00`)
       .lte('created_at', `${today}T23:59:59`)
 
-    if (duplicates && duplicates.length > 0) {
+    if (duplicateError) {
+      throw duplicateError
+    }
+
+    if ((duplicateCount || 0) > 0) {
       return NextResponse.json(
         {
           error: 'Você já enviou uma avaliação hoje.',
@@ -89,9 +116,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Sanitizar inputs
-    const sanitizedComment = comment ? sanitizeInput(comment) : null
-    const sanitizedName = patientName ? sanitizeInput(patientName) : null
-    const sanitizedDentistComment = dentistComment ? sanitizeInput(dentistComment) : null
+    const commentValidation = validateTextField(comment, {
+      fieldLabel: 'comentario sobre a clinica',
+      maxLength: 500,
+      preserveNewlines: true,
+    })
+
+    const dentistCommentValidation = validateTextField(dentistComment, {
+      fieldLabel: 'comentario sobre o dentista',
+      maxLength: 500,
+      preserveNewlines: true,
+    })
+    await Promise.all([
+      logSuspiciousValidationIfNeeded(req, 'comment', comment, commentValidation),
+      logSuspiciousValidationIfNeeded(req, 'dentistComment', dentistComment, dentistCommentValidation),
+    ])
+
+    if (!commentValidation.ok) {
+      return NextResponse.json({ error: commentValidation.error }, { status: 400 })
+    }
+
+    if (!dentistCommentValidation.ok) {
+      return NextResponse.json({ error: dentistCommentValidation.error }, { status: 400 })
+    }
+
+    const sanitizedComment = commentValidation.sanitizedValue ? sanitizeInput(commentValidation.sanitizedValue) : null
+    const sanitizedDentistComment = dentistCommentValidation.sanitizedValue
+      ? sanitizeInput(dentistCommentValidation.sanitizedValue)
+      : null
 
     // Analisar sentimento considerando texto e nota atribuída
     const sentiment = analyzeSentiment(sanitizedComment || '', parseInt(rating))
@@ -106,8 +158,8 @@ export async function POST(req: NextRequest) {
       dentist_comment: sanitizedDentistComment,
       dentist_sentiment: dentistSentiment,
       sentiment,
-      is_anonymous: isAnonymous,
-      patient_name: isAnonymous ? null : sanitizedName,
+      is_anonymous: true,
+      patient_name: null,
       source: source || 'whatsapp',
       device_fingerprint: deviceFingerprint,
     })

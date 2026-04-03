@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "reset-admin-email": "node scripts/reset-admin-email.js"
+    "reset-admin-email": "node scripts/reset-admin-email.js",
+    "test-sql-injection-protection": "node scripts/test-sql-injection-protection.js",
+    "test-recovery-email": "node scripts/test-recovery-email.js",
+    "test-bruteforce-alert": "node scripts/test-bruteforce-alert.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",

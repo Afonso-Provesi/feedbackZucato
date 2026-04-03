@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminSession } from '@/lib/auth'
 import { getFeedbacks } from '@/lib/supabase'
+import { isValidDashboardDateInput, sanitizeTextField } from '@/lib/inputProtection'
+
+const ALLOWED_SENTIMENTS = new Set(['todos', 'positivo', 'negativo', 'neutro'])
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,12 +12,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const sentiment = req.nextUrl.searchParams.get('sentiment')
-    const dateFrom = req.nextUrl.searchParams.get('dateFrom') || req.nextUrl.searchParams.get('startDate')
-    const dateTo = req.nextUrl.searchParams.get('dateTo') || req.nextUrl.searchParams.get('endDate')
+    const sentiment = sanitizeTextField(req.nextUrl.searchParams.get('sentiment') || 'todos', { maxLength: 16 })
+    const dateFrom = sanitizeTextField(req.nextUrl.searchParams.get('dateFrom') || req.nextUrl.searchParams.get('startDate'), { maxLength: 10 })
+    const dateTo = sanitizeTextField(req.nextUrl.searchParams.get('dateTo') || req.nextUrl.searchParams.get('endDate'), { maxLength: 10 })
+
+    if (!ALLOWED_SENTIMENTS.has(sentiment)) {
+      return NextResponse.json({ error: 'Filtro de sentimento inválido' }, { status: 400 })
+    }
+
+    if (dateFrom && !isValidDashboardDateInput(dateFrom)) {
+      return NextResponse.json({ error: 'Data inicial inválida' }, { status: 400 })
+    }
+
+    if (dateTo && !isValidDashboardDateInput(dateTo)) {
+      return NextResponse.json({ error: 'Data final inválida' }, { status: 400 })
+    }
 
     const filters: any = {}
-    if (sentiment && sentiment !== 'todos') {
+    if (sentiment !== 'todos') {
       filters.sentiment = sentiment
     }
     if (dateFrom) filters.startDate = dateFrom

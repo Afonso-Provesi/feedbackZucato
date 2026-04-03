@@ -1,6 +1,7 @@
-// Compatibilidade: sempre retorna true e /autumn/audit
+const MASKED_ADMIN_PATHS = new Set(['/autumn/login', '/autumn/audit'])
+
 export function isValidAdminPath(path: string): boolean {
-  return true
+  return MASKED_ADMIN_PATHS.has(path)
 }
 
 export function getCurrentAdminPath(): string {
@@ -9,7 +10,7 @@ export function getCurrentAdminPath(): string {
 
 // Função para definir caminho personalizado (apenas para desenvolvimento)
 export function setAdminPath(path: string): void {
-  if (isValidAdminPath(path)) {
+  if (typeof window !== 'undefined' && isValidAdminPath(path)) {
     sessionStorage.setItem('admin-path', path)
   }
 }

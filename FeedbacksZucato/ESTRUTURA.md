@@ -84,10 +84,10 @@ zucato-feedback/
         ↓
 /obrigado               → Página de Agradecimento
 
-/admin/login            → Login (público mas protegido)
+/autumn/login           → Login (público mas protegido)
 └── Requer autenticação
     ↓
-/admin/dashboard        → Dashboard (protegido)
+/autumn/audit           → Dashboard (protegido)
 ├── Cards de estatísticas
 ├── Gráficos
 └── Tabela com filtros
@@ -218,7 +218,7 @@ Login Admin → Email + Senha
     ↓
 [Set Cookie] → httpOnly, secure, sameSite
     ↓
-[Redirect] → /admin/dashboard
+[Redirect] → /autumn/audit
     ↓
 Admin Autenticado ✓
 ```
@@ -282,13 +282,13 @@ Cliente (WhatsApp Link)
     │
     └→ Admin (Dashboard)
         ↓
-        /admin/login
+        /autumn/login
             ↓
             POST /api/auth/login
             ↓
             [JWT + Cookie]
             ↓
-            /admin/dashboard
+            /autumn/audit
                 ↓
                 GET /api/admin/stats
                 GET /api/admin/evolution

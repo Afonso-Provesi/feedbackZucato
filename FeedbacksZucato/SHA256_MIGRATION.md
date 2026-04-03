@@ -138,7 +138,7 @@ node scripts/create-admin.js
 
 ```bash
 npm run dev
-# Acesse http://localhost:3000/admin/login
+# Acesse http://localhost:3000/autumn/login
 # Use as credenciais criadas
 ```
 
@@ -161,8 +161,8 @@ npm run dev
 - [ ] Atualizar `app/api/auth/login/route.ts`
 - [ ] Remover `ENCRYPTION_KEY` do `.env.local`
 - [ ] Executar `node scripts/create-admin.js`
-- [ ] Testar login em `/admin/login`
-- [ ] Testar dashboard em `/admin/dashboard`
+- [ ] Testar login em `/autumn/login`
+- [ ] Testar dashboard em `/autumn/audit`
 - [ ] Fazer push no GitHub
 - [ ] Redeploy na Vercel
 

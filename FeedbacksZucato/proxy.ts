@@ -6,6 +6,10 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const { response, user } = await updateSupabaseSession(request)
 
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/404', request.url))
+  }
+
   if (pathname === '/autumn/login' || pathname === '/autumn/audit') {
     if (pathname === '/autumn/audit') {
       if (!user) {
@@ -24,5 +28,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/autumn/:path*'],
+  matcher: ['/autumn/:path*', '/admin/:path*'],
 }

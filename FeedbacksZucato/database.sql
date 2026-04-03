@@ -9,10 +9,12 @@ CREATE TABLE feedbacks (
   dentist_sentiment VARCHAR(10) CHECK (dentist_sentiment IN ('positivo', 'negativo', 'neutro')),
   sentiment VARCHAR(10) CHECK (sentiment IN ('positivo', 'negativo', 'neutro')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  is_anonymous BOOLEAN DEFAULT false,
+  is_anonymous BOOLEAN NOT NULL DEFAULT true,
   patient_name VARCHAR(255),
   source VARCHAR(50) DEFAULT 'whatsapp',
-  device_fingerprint VARCHAR(64)
+  device_fingerprint VARCHAR(64),
+  CONSTRAINT feedbacks_must_be_anonymous CHECK (is_anonymous = true),
+  CONSTRAINT feedbacks_patient_name_must_be_null CHECK (patient_name IS NULL)
 );
 
 -- Índices para performance
@@ -23,6 +25,24 @@ CREATE INDEX idx_feedbacks_device_fingerprint ON feedbacks(device_fingerprint);
 CREATE INDEX idx_feedbacks_device_created_at ON feedbacks(device_fingerprint, created_at);
 CREATE INDEX idx_feedbacks_dentist_name ON feedbacks(dentist_name);
 CREATE INDEX idx_feedbacks_dentist_rating ON feedbacks(dentist_rating);
+
+-- Eventos de proteção de input
+CREATE TABLE security_input_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_type VARCHAR(64) NOT NULL,
+  source_scope VARCHAR(64),
+  request_path VARCHAR(160),
+  field_name VARCHAR(64),
+  client_ip VARCHAR(64),
+  user_agent TEXT,
+  payload_preview TEXT,
+  reason TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_security_input_events_created_at ON security_input_events(created_at DESC);
+CREATE INDEX idx_security_input_events_event_type ON security_input_events(event_type);
+CREATE INDEX idx_security_input_events_source_scope ON security_input_events(source_scope);
 
 -- Tabela de Administradores
 CREATE TABLE admins (
@@ -44,10 +64,11 @@ CREATE UNIQUE INDEX idx_admins_single_owner ON admins(role) WHERE role = 'owner'
 -- Row Level Security (RLS)
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_input_events ENABLE ROW LEVEL SECURITY;
 
 -- Policies para feedbacks (acesso público para INSERT)
 CREATE POLICY "Allow public to insert feedbacks" ON feedbacks
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT WITH CHECK (is_anonymous = true AND patient_name IS NULL);
 
 CREATE POLICY "Allow authenticated users to read feedbacks" ON feedbacks
   FOR SELECT USING (auth.role() = 'authenticated');
