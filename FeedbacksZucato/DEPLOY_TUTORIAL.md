@@ -158,7 +158,7 @@ node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
 ## Testando o Deployment
 
 ### Login no Admin
-1. Acesse `https://seu-projeto.vercel.app/admin/login`
+1. Acesse `https://seu-projeto.vercel.app/autumn/login`
 2. Use as credenciais do admin criado
 3. Verifique o dashboard em `/autumn/audit`
 

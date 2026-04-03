@@ -11,6 +11,7 @@ import { validateSupabaseAdminSession } from '@/lib/adminAuth'
 import { validateEmail } from '@/lib/security'
 import { hashEmail } from '@/lib/crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeEmailInput, sanitizeTextField } from '@/lib/inputProtection'
 
 function randomPassword(): string {
   return `Tmp-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
@@ -56,53 +57,46 @@ async function findAuthUserByEmail(email: string) {
   }
 }
 
-async function listAuthUsersById() {
-  const adminApi = supabaseAdmin.auth.admin
-  const usersById = new Map<string, string>()
-  let page = 1
-
-  while (true) {
-    const { data, error } = await adminApi.listUsers({ page, perPage: 200 })
-
-    if (error) {
-      throw error
-    }
-
-    data.users.forEach((user) => {
-      if (user.id && user.email) {
-        usersById.set(user.id, user.email.toLowerCase())
-      }
-    })
-
-    if (data.users.length < 200) {
-      break
-    }
-
-    page += 1
-  }
-
-  return usersById
-}
-
 async function findAuthEmailByUserId(authUserId: string | null) {
   if (!authUserId) {
     return null
   }
 
-  const usersById = await listAuthUsersById()
-  return usersById.get(authUserId) || null
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(authUserId)
+
+  if (error) {
+    if (error.message.toLowerCase().includes('not found')) {
+      return null
+    }
+
+    throw error
+  }
+
+  return data.user?.email?.toLowerCase() || null
+}
+
+async function getAuthEmailsByUserIds(authUserIds: Array<string | null>) {
+  const uniqueUserIds = Array.from(new Set(authUserIds.filter((authUserId): authUserId is string => Boolean(authUserId))))
+  const usersById = new Map<string, string>()
+
+  await Promise.all(
+    uniqueUserIds.map(async (authUserId) => {
+      try {
+        const authEmail = await findAuthEmailByUserId(authUserId)
+        if (authEmail) {
+          usersById.set(authUserId, authEmail)
+        }
+      } catch (error) {
+        console.error(`Erro ao resolver email do usuário ${authUserId}:`, error)
+      }
+    })
+  )
+
+  return usersById
 }
 
 async function createOrLoadAuthUser(email: string) {
   const normalizedEmail = email.trim().toLowerCase()
-
-  const existingUser = await findAuthUserByEmail(normalizedEmail)
-  if (existingUser) {
-    return {
-      user: existingUser,
-      reused: true,
-    }
-  }
 
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: normalizedEmail,
@@ -161,7 +155,7 @@ export async function GET() {
     }
 
     const admins = await listManagedAdmins()
-    const usersById = await listAuthUsersById()
+    const usersById = await getAuthEmailsByUserIds(admins.map((admin) => admin.auth_user_id))
 
     return NextResponse.json(
       {
@@ -197,7 +191,7 @@ export async function POST(req: NextRequest) {
     const ownerSession = session!
 
     const body = await req.json()
-    const email = String(body.email || '').trim().toLowerCase()
+    const email = normalizeEmailInput(body.email)
 
     if (!validateEmail(email)) {
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
@@ -250,10 +244,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json()
-    const action = body.action
+    const action = sanitizeTextField(body.action, { maxLength: 32 })
 
     if (action === 'toggle-status') {
-      const adminId = String(body.adminId || '')
+      const adminId = sanitizeTextField(body.adminId, { maxLength: 64 })
       const isActive = Boolean(body.isActive)
 
       if (!adminId) {
@@ -283,7 +277,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'generate-setup-link') {
-      const adminId = String(body.adminId || '').trim()
+      const adminId = sanitizeTextField(body.adminId, { maxLength: 64 })
 
       if (!adminId) {
         return NextResponse.json({ error: 'Admin inválido' }, { status: 400 })

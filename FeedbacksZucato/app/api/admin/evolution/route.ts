@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminSession } from '@/lib/auth'
 import { getFeedbackEvolution } from '@/lib/supabase'
+import { normalizeIntegerInRange } from '@/lib/inputProtection'
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const days = Number(req.nextUrl.searchParams.get('days')) || 30
+    const days = normalizeIntegerInRange(req.nextUrl.searchParams.get('days'), 30, 1, 365)
     const evolution = await getFeedbackEvolution(days)
 
     return NextResponse.json(evolution, { status: 200 })

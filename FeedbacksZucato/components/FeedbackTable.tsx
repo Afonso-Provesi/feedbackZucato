@@ -13,7 +13,6 @@ interface Feedback {
   dentist_sentiment: 'positivo' | 'negativo' | 'neutro' | null
   sentiment: 'positivo' | 'negativo' | 'neutro' | null
   created_at: string
-  patient_name: string | null
   is_anonymous: boolean
 }
 
@@ -63,7 +62,7 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
               <th className="w-[120px] text-left p-3 text-[var(--text-soft)] font-semibold">Sent. dentista</th>
               <th className="w-[320px] text-left p-3 text-[var(--text-soft)] font-semibold">Comentário</th>
               <th className="w-[320px] text-left p-3 text-[var(--text-soft)] font-semibold">Comentário do dentista</th>
-              <th className="w-[120px] text-left p-3 text-[var(--text-soft)] font-semibold">Paciente</th>
+              <th className="w-[120px] text-left p-3 text-[var(--text-soft)] font-semibold">Privacidade</th>
             </tr>
           </thead>
           <tbody>
@@ -127,11 +126,7 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
                     {feedback.dentist_comment || '-'}
                   </td>
                   <td className="p-3 text-[var(--color-text)]">
-                    {feedback.is_anonymous ? (
-                      <span className="text-[var(--text-soft)] text-sm">Anônimo</span>
-                    ) : (
-                      feedback.patient_name || '-'
-                    )}
+                    <span className="text-[var(--text-soft)] text-sm">Anônimo</span>
                   </td>
                 </tr>
               ))
