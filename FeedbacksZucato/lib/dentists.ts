@@ -1,5 +1,5 @@
 export const DENTISTS = [
-  'Dr Adolpho',
+  'Dr Bruno',
   'Dr Gabriel',
   'Dr Rodrigo',
   'Dr Guto',

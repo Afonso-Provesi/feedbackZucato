@@ -458,7 +458,9 @@ async function getPageViewStatsFallback(page: string, dateFrom?: string, dateTo?
 }
 
 export async function saveFeedback(feedback: Feedback) {
-  const { error } = await supabase
+  // Gravação feita pelo servidor (service_role), depois de passar pelas
+  // validações e pelo rate limit de /api/feedback.
+  const { error } = await supabaseAdmin
     .from('feedbacks')
     .insert([feedback])
 
@@ -474,7 +476,7 @@ export async function getFeedbacks(filters?: {
   endDate?: string
 }) {
   let query = supabaseAdmin.from('feedbacks').select(
-    'id, rating, comment, dentist_name, dentist_rating, dentist_comment, dentist_sentiment, sentiment, created_at, is_anonymous'
+    'id, rating, comment, dentist_name, dentist_rating, dentist_comment, dentist_sentiment, sentiment, created_at, is_anonymous, source'
   )
 
   if (filters?.sentiment && filters.sentiment !== 'todos') {

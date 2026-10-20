@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { saveFeedback, supabaseAdmin } from '@/lib/supabase'
+import { saveFeedback } from '@/lib/supabase'
 import { analyzeSentiment } from '@/lib/sentiment'
 import { sanitizeInput, validateRating, checkRateLimit, getClientIpFromHeaders } from '@/lib/security'
 import { generateDeviceFingerprint } from '@/lib/crypto'
 import { isValidDentistName } from '@/lib/dentists'
 import { validateTextField } from '@/lib/inputProtection'
 import { recordSecurityInputEvent } from '@/lib/securityInputEvents'
+import { normalizeFeedbackSource } from '@/lib/sources'
 
 async function logSuspiciousValidationIfNeeded(
   req: NextRequest,
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const ip = getClientIpFromHeaders(req.headers)
 
-    const rateLimit = await checkRateLimit(ip, 10, 60000)
+    const rateLimit = await checkRateLimit(`feedback:${ip}`, 10, 60000)
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -92,28 +93,9 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get('user-agent') || 'unknown'
     const deviceFingerprint = generateDeviceFingerprint(userAgent, ip)
 
-    // Verificar se já existe feedback do mesmo dispositivo no mesmo dia
-    const today = new Date().toISOString().split('T')[0]
-    const { count: duplicateCount, error: duplicateError } = await supabaseAdmin
-      .from('feedbacks')
-      .select('id', { count: 'exact', head: true })
-      .eq('device_fingerprint', deviceFingerprint)
-      .gte('created_at', `${today}T00:00:00`)
-      .lte('created_at', `${today}T23:59:59`)
-
-    if (duplicateError) {
-      throw duplicateError
-    }
-
-    if ((duplicateCount || 0) > 0) {
-      return NextResponse.json(
-        {
-          error: 'Você já enviou uma avaliação hoje.',
-          details: 'Cada dispositivo pode enviar no máximo uma avaliação por dia.'
-        },
-        { status: 429 }
-      )
-    }
+    // O app roda em um tablet compartilhado na clínica: vários pacientes enviam
+    // pelo mesmo dispositivo, então não há bloqueio de "uma avaliação por dia".
+    // A proteção contra abuso fica a cargo do rate limit por IP acima.
 
     // Sanitizar inputs
     const commentValidation = validateTextField(comment, {
@@ -160,7 +142,7 @@ export async function POST(req: NextRequest) {
       sentiment,
       is_anonymous: true,
       patient_name: null,
-      source: source || 'whatsapp',
+      source: normalizeFeedbackSource(source),
       device_fingerprint: deviceFingerprint,
     })
 

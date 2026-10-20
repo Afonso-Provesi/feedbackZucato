@@ -52,6 +52,7 @@ interface Feedback {
 	sentiment: FeedbackSentiment | null
 	created_at: string
 	is_anonymous: boolean
+	source?: string | null
 }
 
 interface SecurityInputEvent {

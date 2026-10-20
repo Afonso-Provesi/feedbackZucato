@@ -79,7 +79,7 @@ export default function FeedbackForm() {
           dentistRating,
           dentistComment: dentistCommentValidation.sanitizedValue || null,
           isAnonymous: true,
-          source: 'whatsapp',
+          source: 'tablet',
         }),
       })
 

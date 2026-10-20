@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getSentimentLabel, getSentimentColor } from '@/lib/sentiment'
+import { FEEDBACK_SOURCES, getFeedbackSourceLabel } from '@/lib/sources'
 
 type FeedbackSentiment = 'positivo' | 'negativo' | 'neutro' | 'misto'
 
@@ -16,6 +17,7 @@ interface Feedback {
   sentiment: FeedbackSentiment | null
   created_at: string
   is_anonymous: boolean
+  source?: string | null
 }
 
 interface FeedbackTableProps {
@@ -25,6 +27,18 @@ interface FeedbackTableProps {
 
 export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProps) {
   const [activeFilter, setActiveFilter] = useState('todos')
+  const [activeSource, setActiveSource] = useState('todas')
+
+  const sourceCounts = feedbacks.reduce<Record<string, number>>((acc, feedback) => {
+    const key = feedback.source || 'desconhecida'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+
+  const visibleFeedbacks =
+    activeSource === 'todas'
+      ? feedbacks
+      : feedbacks.filter((feedback) => (feedback.source || 'desconhecida') === activeSource)
 
   const handleFilter = (sentiment: string) => {
     setActiveFilter(sentiment)
@@ -52,8 +66,26 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
         ))}
       </div>
 
+      {/* Filtro por origem */}
+      <div className="flex gap-2 mb-6 flex-wrap items-center">
+        <span className="text-sm font-semibold text-[var(--text-soft)] mr-1">Origem:</span>
+        {['todas', ...Object.keys(FEEDBACK_SOURCES)].map((source) => (
+          <button
+            key={source}
+            onClick={() => setActiveSource(source)}
+            className={`px-4 py-2 rounded-2xl text-sm font-semibold transition-all ${
+              activeSource === source
+                ? 'bg-[var(--color-secondary)] text-white shadow-[0_12px_24px_rgba(21,58,91,0.18)]'
+                : 'bg-[rgba(21,58,91,0.06)] text-[var(--text-soft)] hover:bg-[rgba(21,58,91,0.12)]'
+            }`}
+          >
+            {source === 'todas' ? `Todas (${feedbacks.length})` : `${getFeedbackSourceLabel(source)} (${sourceCounts[source] || 0})`}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-x-auto rounded-[22px] border border-[rgba(21,58,91,0.08)]">
-        <table className="min-w-[1220px] w-full table-fixed text-sm">
+        <table className="min-w-[1360px] w-full table-fixed text-sm">
           <thead className="border-b border-[rgba(21,58,91,0.08)] bg-[rgba(21,58,91,0.04)]">
             <tr>
               <th className="w-[100px] text-left p-3 text-[var(--text-soft)] font-semibold">Data</th>
@@ -64,18 +96,19 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
               <th className="w-[120px] text-left p-3 text-[var(--text-soft)] font-semibold">Sent. dentista</th>
               <th className="w-[320px] text-left p-3 text-[var(--text-soft)] font-semibold">Comentário</th>
               <th className="w-[320px] text-left p-3 text-[var(--text-soft)] font-semibold">Comentário do dentista</th>
+              <th className="w-[140px] text-left p-3 text-[var(--text-soft)] font-semibold">Origem</th>
               <th className="w-[120px] text-left p-3 text-[var(--text-soft)] font-semibold">Privacidade</th>
             </tr>
           </thead>
           <tbody>
-            {feedbacks.length === 0 ? (
+            {visibleFeedbacks.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center p-6 text-[var(--text-soft)]">
+                <td colSpan={10} className="text-center p-6 text-[var(--text-soft)]">
                   Nenhum feedback encontrado
                 </td>
               </tr>
             ) : (
-              feedbacks.map((feedback) => (
+              visibleFeedbacks.map((feedback) => (
                 <tr key={feedback.id} className="border-b border-[rgba(21,58,91,0.06)] hover:bg-[rgba(21,58,91,0.03)]">
                   <td className="p-3 text-[var(--color-text)]">
                     {new Date(feedback.created_at).toLocaleDateString('pt-BR')}
@@ -128,6 +161,9 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
                     {feedback.dentist_comment || '-'}
                   </td>
                   <td className="p-3 text-[var(--color-text)]">
+                    {getFeedbackSourceLabel(feedback.source)}
+                  </td>
+                  <td className="p-3 text-[var(--color-text)]">
                     <span className="text-[var(--text-soft)] text-sm">Anônimo</span>
                   </td>
                 </tr>
@@ -137,9 +173,9 @@ export default function FeedbackTable({ feedbacks, onFilter }: FeedbackTableProp
         </table>
       </div>
 
-      {feedbacks.length > 0 && (
+      {visibleFeedbacks.length > 0 && (
         <div className="text-center text-sm text-[var(--text-soft)] mt-4">
-          Mostrando {feedbacks.length} feedbacks
+          Mostrando {visibleFeedbacks.length} feedbacks
         </div>
       )}
     </div>

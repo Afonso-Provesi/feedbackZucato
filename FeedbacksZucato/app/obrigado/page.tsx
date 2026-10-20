@@ -1,6 +1,27 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+
+// Tempo (em segundos) até voltar sozinho para o formulário, deixando o
+// tablet pronto para o próximo paciente.
+const AUTO_RETURN_SECONDS = 8
 
 export default function ThankYouPage() {
+  const router = useRouter()
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_RETURN_SECONDS)
+
+  useEffect(() => {
+    if (secondsLeft <= 0) {
+      router.replace('/')
+      return
+    }
+
+    const timer = setTimeout(() => setSecondsLeft((current) => current - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [secondsLeft, router])
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-brand-white py-8">
       <div className="container-feedback w-full">
@@ -25,6 +46,10 @@ export default function ThankYouPage() {
           >
             Voltar
           </Link>
+
+          <p className="text-sm text-gray-500 mt-4">
+            Voltando para o início em {Math.max(secondsLeft, 0)}s...
+          </p>
         </div>
       </div>
     </main>
