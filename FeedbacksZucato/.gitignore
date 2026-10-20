@@ -52,3 +52,14 @@ Thumbs.db
 # Temp files
 *.tmp
 *.temp
+
+# Segurança: qualquer arquivo de ambiente fica fora do Git
+.env*
+!.env.example
+
+# Artefatos locais
+dist/
+*.tsbuildinfo
+dev.log
+.~lock.*#
+.vercel/

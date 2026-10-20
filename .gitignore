@@ -1,0 +1,24 @@
+# Dependências (nunca devem ir para o GitHub)
+node_modules/
+
+# Variáveis de ambiente e chaves: NUNCA versionar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Builds e caches
+.next/
+dist/
+*.tsbuildinfo
+.vercel/
+
+# Logs e arquivos temporários
+*.log
+.~lock.*#
+.DS_Store
+Thumbs.db
+
+# Script local de limpeza do historico
+limpar-historico.ps1
